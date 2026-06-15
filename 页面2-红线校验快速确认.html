@@ -1,0 +1,556 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>规则校验结果</title>
+<style>
+*{margin:0;padding:0;box-sizing:border-box}
+body{font-family:-apple-system,"Microsoft YaHei","PingFang SC",sans-serif;background:#F8F9FA;color:#333;height:100vh;overflow:hidden}
+
+/* ── 主布局 ── */
+.main{display:flex;height:100vh;gap:16px;padding:16px;background:#F8F9FA}
+
+/* ─── 左侧面板 ─── */
+.left-panel{width:340px;flex-shrink:0;background:#fff;border-radius:8px;box-shadow:0 2px 8px rgba(0,0,0,.05);display:flex;flex-direction:column;overflow:hidden}
+.lp-header{padding:14px 18px 10px;border-bottom:1px solid #eee}
+.lp-header h3{font-size:14px;font-weight:600;color:#333}
+.lp-body{flex:1;overflow-y:auto;padding:12px 18px}
+
+.info-bubble{background:#F8F9FA;border-radius:6px;padding:10px 12px;font-size:12px;color:#666;line-height:1.6;margin-bottom:12px}
+
+.status-row{display:flex;align-items:center;justify-content:space-between;padding:9px 12px;background:#F8F9FA;border-radius:6px;font-size:13px;color:#333;margin-bottom:12px;cursor:pointer;transition:background .15s}
+.status-row:hover{background:#f0f1f3}
+.status-row .num{color:#1677ff;font-weight:700}
+.status-row .arr{color:#bbb;font-size:14px}
+
+.summary-grid{display:grid;grid-template-columns:1fr 1fr;gap:8px;margin-bottom:12px}
+.sg-item{background:#F8F9FA;border-radius:6px;padding:8px 10px;text-align:center}
+.sg-num{font-size:20px;font-weight:700;color:#333;line-height:1.2}
+.sg-label{font-size:11px;color:#999;margin-top:2px}
+.sg-item.warn .sg-num{color:#f53f3f}
+.sg-item.ok .sg-num{color:#52c41a}
+.sg-item.info .sg-num{color:#1677ff}
+
+.rules-info{margin-bottom:12px}
+.ri-title{font-size:12px;font-weight:600;color:#333;margin-bottom:6px}
+.ri-item{font-size:12px;color:#666;line-height:1.6;padding:2px 0;padding-left:18px;position:relative}
+.ri-item::before{content:'';position:absolute;left:0;top:7px;width:6px;height:6px;border-radius:50%;background:#1677ff}
+
+.ts-row{display:flex;align-items:center;justify-content:space-between;font-size:11px;color:#bbb;padding-top:8px;border-top:1px solid #f0f0f0;margin-top:4px}
+.ts-actions{display:flex;gap:6px}
+.ts-actions span{cursor:pointer;padding:2px 4px;border-radius:3px;font-size:14px}
+.ts-actions span:hover{background:#f5f5f5}
+
+/* ─── 右侧面板 ─── */
+.right-panel{flex:1;background:#fff;border-radius:8px;box-shadow:0 2px 8px rgba(0,0,0,.05);display:flex;flex-direction:column;overflow:hidden;position:relative}
+
+.rp-header{display:flex;align-items:flex-start;justify-content:space-between;padding:16px 24px 12px;border-bottom:1px solid #f0f0f0;flex-shrink:0}
+.rp-header h2{font-size:18px;font-weight:600;color:#333}
+.rp-header .rp-sub{font-size:12px;color:#999;margin-top:3px}
+.rp-sub strong{color:#333}
+
+.rp-header-right{display:flex;align-items:center;gap:10px;flex-shrink:0;margin-top:2px}
+
+.btn-primary{padding:6px 16px;border-radius:4px;font-size:12px;font-weight:500;cursor:pointer;border:none;transition:all .2s;display:inline-flex;align-items:center;gap:4px;white-space:nowrap}
+.btn-primary.blue{background:#1677ff;color:#fff}
+.btn-primary.blue:hover:not(:disabled){opacity:.88}
+.btn-primary.green{background:#52c41a;color:#fff}
+.btn-primary.green:hover:not(:disabled){opacity:.88}
+.btn-primary:disabled{background:#d9d9d9;color:#bbb;cursor:not-allowed;opacity:1}
+.btn-primary.loading{opacity:.7;pointer-events:none}
+
+/* Tab 栏 */
+.v-tabs{display:flex;gap:0;padding:0 24px;border-bottom:1px solid #f0f0f0;flex-shrink:0;background:#fff}
+.v-tab{padding:9px 16px;font-size:12px;color:#999;cursor:pointer;border-bottom:2px solid transparent;transition:all .15s;white-space:nowrap}
+.v-tab:hover{color:#666}
+.v-tab.active{color:#1677ff;border-bottom-color:#1677ff;font-weight:500}
+.v-tab .vt-c{color:#ccc;margin-left:4px;font-size:11px}
+
+/* 列表 */
+.v-list{flex:1;overflow-y:auto;padding:16px 24px 24px}
+
+/* 校验卡片 */
+.v-card{padding:16px 20px;margin-bottom:16px;background:#fff;border-radius:8px;box-shadow:0 2px 8px rgba(0,0,0,.05);transition:box-shadow .15s,background .15s}
+.v-card:last-child{margin-bottom:0}
+.v-card.fixed{background:#f6ffed}
+.v-card.skipped{background:#fafafa;opacity:.7}
+
+/* 顶部行 - 标签左右分布 */
+.vc-top-row{display:flex;align-items:center;justify-content:space-between;gap:12px;margin-bottom:8px;flex-wrap:wrap}
+.vc-tags-left{display:flex;gap:4px;flex-wrap:wrap}
+.vc-top-right{display:flex;align-items:center;gap:6px;flex-wrap:wrap;flex-shrink:0}
+
+/* 标签样式 */
+.v-tag{display:inline-flex;align-items:center;padding:0 6px;border-radius:3px;font-size:11px;height:20px;line-height:1;font-weight:500;border:1px solid #E0E0E0}
+.v-tag.hard{background:#FFCDD2;color:#fff;border-color:#ef9a9a}
+.v-tag.conflict{background:#FFB74D;color:#fff;border-color:#ffa726}
+.v-tag.medium{background:#FFE0B2;color:#666;border-color:#ffe0b2}
+.v-tag.high{background:#FFE0B2;color:#d46b08;border-color:#ffcc80}
+.v-tag.low{background:#e6f7ff;color:#1677ff;border-color:#bae7ff}
+.v-tag.remind{background:#FFF3E0;color:#8d6e00;border-color:#ffe0b2}
+
+/* 规则ID */
+.vc-id{font-size:11px;color:#bbb;font-family:Consolas,'SF Mono',monospace}
+
+/* 状态标签（已修复/已跳过） */
+.vc-status{display:inline-flex;align-items:center;padding:0 8px;border-radius:3px;font-size:11px;height:20px;font-weight:500}
+.vc-status.fixed{background:#f6ffed;color:#52c41a;border:1px solid #b7eb8f}
+.vc-status.skipped{background:#f5f5f5;color:#999;border:1px solid #e8e8e8}
+
+.vc-title{font-size:15px;font-weight:600;color:#333;margin-bottom:6px;line-height:1.4}
+.vc-desc{font-size:12px;color:#666;line-height:1.6;margin-bottom:8px}
+.vc-meta{display:flex;flex-wrap:wrap;gap:2px 20px;font-size:12px;color:#666;line-height:1.6;margin-bottom:8px}
+.vc-meta .ml{color:#bbb}
+
+/* 建议模块 */
+.vc-suggestion{font-size:13px;color:#333;line-height:1.6;margin-bottom:10px;padding:0}
+.vc-suggestion .vs-l{font-weight:600}
+
+/* 操作按钮区 */
+.vc-actions{display:flex;justify-content:flex-end;gap:8px;margin-top:6px;flex-wrap:wrap;align-items:center}
+.vc-btn{padding:5px 14px;border-radius:4px;font-size:12px;font-weight:500;cursor:pointer;transition:all .15s;display:inline-flex;align-items:center;gap:4px;white-space:nowrap}
+.vc-btn.primary{background:#1677ff;color:#fff;border:none}
+.vc-btn.primary:hover:not(:disabled){opacity:.88}
+.vc-btn.primary:disabled{background:#d9d9d9;color:#bbb;cursor:not-allowed}
+.vc-btn.primary.loading{opacity:.7;pointer-events:none}
+.vc-btn.orange{background:#fff;color:#d46b08;border:1px solid #ffcc80}
+.vc-btn.orange:hover{background:#fff7e6}
+.vc-btn.text{background:transparent;color:#999;border:none;padding:5px 8px}
+.vc-btn.text:hover{color:#666}
+.vc-btn.danger{background:#fff;color:#f53f3f;border:1px solid #ffccc7}
+.vc-btn.danger:hover{background:#fff2f0}
+
+/* 编辑态 */
+.vc-edit-banner{padding:8px 12px;background:#e8f4ff;border-radius:4px;font-size:12px;color:#1677ff;margin-bottom:10px;display:flex;align-items:center;gap:6px}
+
+.field-grid{display:grid;grid-template-columns:1fr 1fr;gap:8px 16px;margin-bottom:8px}
+.field-item{display:flex;flex-direction:column;gap:3px}
+.field-item.full{grid-column:1/-1}
+.field-item label{font-size:11px;color:#999;font-weight:500}
+.field-item select,.field-item textarea,.field-item input[type=text]{font-size:12px;color:#333;border:1px solid #e5e5e5;border-radius:4px;background:#fff;padding:4px 6px;transition:border-color .15s;font-family:inherit}
+.field-item select:focus,.field-item textarea:focus,.field-item input[type=text]:focus{outline:none;border-color:#1677ff}
+.field-item textarea{resize:vertical;min-height:36px;line-height:1.5}
+
+.field-item.highlight label{color:#f53f3f;font-weight:600}
+.field-item.highlight .fh-wrap{position:relative}
+.field-item.highlight .fh-marker{position:absolute;top:4px;right:4px;width:16px;height:16px;border-radius:50%;background:#f53f3f;color:#fff;font-size:10px;font-weight:700;display:flex;align-items:center;justify-content:center;z-index:1}
+.field-item.highlight select,.field-item.highlight textarea,.field-item.highlight input[type=text]{border-color:#f53f3f;background:#fff2f0}
+.field-item.highlight .field-suggestion{background:#fff;border:1px solid #ffccc7;border-radius:4px;padding:6px 8px;font-size:11px;color:#666;line-height:1.5;margin-top:3px}
+.field-item.highlight .field-suggestion .fs-l{font-weight:600;color:#1677ff}
+
+/* 前后对比 */
+.vc-compare{padding:8px 12px;background:#fff;border:1px solid #e8e8e8;border-radius:6px;margin-bottom:8px;font-size:12px;line-height:1.6}
+.vc-compare .vcc-l{font-weight:600;color:#333;margin-bottom:4px}
+.vc-compare .vcc-old{color:#999;text-decoration:line-through;margin-bottom:2px}
+.vc-compare .vcc-new{color:#52c41a;font-weight:500}
+
+/* Toast */
+.toast-c{position:fixed;top:20px;left:50%;transform:translateX(-50%);z-index:9999;display:flex;flex-direction:column;gap:8px;pointer-events:none}
+.toast{padding:10px 20px;border-radius:6px;font-size:13px;color:#fff;box-shadow:0 6px 20px rgba(0,0,0,.12);animation:ti .25s ease,to .3s ease 2.5s forwards;pointer-events:auto;display:flex;align-items:center;gap:8px}
+.toast-s{background:#1677ff}
+.toast-e{background:#f53f3f}
+@keyframes ti{from{opacity:0;transform:translateY(-12px)}to{opacity:1;transform:translateY(0)}}
+@keyframes to{from{opacity:1}to{opacity:0;transform:translateY(-8px)}}
+
+::-webkit-scrollbar{width:4px;height:4px}
+::-webkit-scrollbar-track{background:transparent}
+::-webkit-scrollbar-thumb{background:#ccc;border-radius:2px}
+::-webkit-scrollbar-thumb:hover{background:#999}
+</style>
+</head>
+<body>
+<div class="main">
+
+  <!-- ===== 左侧面板 ===== -->
+  <div class="left-panel">
+    <div class="lp-header"><h3>规则校验概览</h3></div>
+    <div class="lp-body">
+      <div class="info-bubble">
+        以下为规则提交后的系统校验结果。高置信/强制问题须全部修复后方可提交生效；中置信问题可选择跳过；低置信问题仅供参考。
+      </div>
+      <div class="status-row" onclick="alert('查看校验执行详情')">
+        <span>校验已完成 <span class="num">6</span> 项校验</span>
+        <span class="arr">→</span>
+      </div>
+      <div class="summary-grid">
+        <div class="sg-item warn"><div class="sg-num" id="lPending">3</div><div class="sg-label">待修复</div></div>
+        <div class="sg-item ok"><div class="sg-num" id="lFixed">2</div><div class="sg-label">已修复</div></div>
+        <div class="sg-item info"><div class="sg-num" id="lSkipped">1</div><div class="sg-label">已跳过</div></div>
+        <div class="sg-item"><div class="sg-num" id="lTotal">6</div><div class="sg-label">总计</div></div>
+      </div>
+      <div class="rules-info">
+        <div class="ri-title">校验规则说明</div>
+        <div class="ri-item">高置信/强制问题不可跳过，须修复后提交</div>
+        <div class="ri-item">中置信问题可跳过，提交时需二次确认</div>
+        <div class="ri-item">低置信问题仅展示，不影响提交</div>
+      </div>
+      <div class="ts-row">
+        <span id="tsText">06-11 15:23</span>
+        <div class="ts-actions">
+          <span onclick="copyReport()" title="复制">📋</span>
+          <span onclick="alert('报告已导出')" title="导出">📤</span>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <!-- ===== 右侧面板 ===== -->
+  <div class="right-panel">
+    <div class="rp-header">
+      <div>
+        <h2>规则校验结果</h2>
+        <div class="rp-sub">共发现 <strong id="totalIssues">6</strong> 个问题 · 已修复 <strong id="fixedCount">2</strong> 个</div>
+      </div>
+      <div class="rp-header-right">
+        <button class="btn-primary blue" id="batchBtn" onclick="handleBatchFix()">⚡ 采纳所有建议</button>
+        <button class="btn-primary blue" id="undoAllBtn" onclick="handleUndoAll()" disabled>撤销所有修复</button>
+        <button class="btn-primary green" id="submitBtn" onclick="handleFinalSubmit()">📤 提交审核</button>
+      </div>
+    </div>
+    <div class="v-tabs" id="tabBar">
+      <span class="v-tab active" data-tab="all" onclick="switchTab('all')">全部 <span class="vt-c" id="tabAll">6</span></span>
+      <span class="v-tab" data-tab="pending" onclick="switchTab('pending')">待修复 <span class="vt-c" id="tabPending">3</span></span>
+      <span class="v-tab" data-tab="fixed" onclick="switchTab('fixed')">已修复 <span class="vt-c" id="tabFixed">2</span></span>
+      <span class="v-tab" data-tab="skipped" onclick="switchTab('skipped')">已跳过 <span class="vt-c" id="tabSkipped">1</span></span>
+    </div>
+    <div class="v-list" id="vList"></div>
+  </div>
+</div>
+<div class="toast-c" id="toastC"></div>
+
+<script>
+const validationData = [
+  { id:'V001', ruleId:'TENANT_001:PRESET-A-DOC-001',
+    title:'报销金额不得超过发票金额', tags:['强制'], issueTags:['条件矛盾','中置信'],
+    description:'每条费用明细的报销金额必须小于或等于对应发票（或发票组）的价税合计金额。允许部分报销，不允许超出发票金额报销。超限直接阻断。',
+    feeType:'全部', standard:'formula: 报销金额 <= 发票价税合计, allow_partial: True',
+    suggestion:'将「部分报销」替换为具体比例或金额范围，或标记为需人工审核规则',
+    confidence:'medium', status:'pending',
+    fields:{ name:'报销金额不得超过发票金额', feeType:'全部', feeSub:'全部', checkType:'金额校验', dimension:'准确性',
+      desc:'每条费用明细的报销金额必须小于或等于对应发票（或发票组）的价税合计金额。允许部分报销，不允许超出发票金额报销。超限直接阻断。',
+      condition:'全部适用', basis:'—' },
+    suggestedFields:{ desc:'每条费用明细的报销金额必须小于或等于对应发票（或发票组）的价税合计金额。允许不超过发票金额30%的部分报销，超过部分须人工审批。超限直接阻断。' } },
+  { id:'V002', ruleId:'TENANT_001:R_CAND_39_36F1A79144',
+    title:'无预算支出原则上不予审核', tags:['强制'], issueTags:['条件矛盾','高置信'],
+    description:'费用无对应预算科目，原则上不予审核通过；特殊情况须报预算委员会审批',
+    feeType:'全部', standard:'第十六条（二）4. 无预算支出：费用无对应预算科目，原则上不予审核通过，特殊情况须报预算委员会审批',
+    suggestion:'明确「特殊情况」的具体适用条件，将「原则上」替换为强制表述或量化阈值',
+    confidence:'high', status:'pending',
+    fields:{ name:'无预算支出原则上不予审核', feeType:'全部', feeSub:'全部', checkType:'预算校验', dimension:'预算控制',
+      desc:'费用无对应预算科目，原则上不予审核通过；特殊情况须报预算委员会审批',
+      condition:'全部适用', basis:'第十六条（二）4' },
+    suggestedFields:{ name:'无预算支出不予审核', desc:'费用无对应预算科目，不予审核通过。以下情形经预算委员会书面审批后可例外：（1）紧急突发事项；（2）预算调整窗口期内。', condition:'除预算委员会书面审批的特殊情况外全部适用' } },
+  { id:'V003', ruleId:'TENANT_001:R_CAND_60_9EC03B3627',
+    title:'价格合理性评估-公允价格', tags:[], issueTags:['提醒','低置信'],
+    description:'费用金额是否与市场公允价格相符，偏离超过20%需附书面说明',
+    feeType:'全部', standard:'经济合理性：费用金额是否与市场公允价格相符，偏离度 ≤20%',
+    suggestion:'补充公允价格参考标准（如第三方报价平台、历史均价等），及偏差超过20%时的处理流程',
+    confidence:'low', status:'fixed',
+    fields:{ name:'价格合理性评估-公允价格', feeType:'全部', feeSub:'全部', checkType:'价格合理性校验', dimension:'经济合理性',
+      desc:'费用金额是否与市场公允价格相符，偏离超过20%需附书面说明',
+      condition:'全部适用', basis:'—' },
+    suggestedFields:{ desc:'费用金额是否与市场公允价格相符。公允价格参考标准包括：第三方报价平台（如1688、京东企业购等）或近6个月历史采购均价。偏离超过20%须附书面说明并经部门负责人审批。' } },
+  { id:'V004', ruleId:'TENANT_001:R_CAND_55_A1B2C3D4E5',
+    title:'交通舱位等级标准含模糊表述', tags:['强制'], issueTags:['条件矛盾','中置信'],
+    description:'交通舱位等级表中的「特殊情况」适用条件未明确界定，执行时存在主观判断空间',
+    feeType:'差旅费', standard:'差旅费管理办法附表一：交通舱位等级表',
+    suggestion:'明确「特殊情况」的具体界定标准，如：紧急出差（接到通知后4小时内出发）、陪同外部专家等情况可突破等级限制',
+    confidence:'medium', status:'pending',
+    fields:{ name:'交通舱位等级标准含模糊表述', feeType:'差旅费', feeSub:'交通费', checkType:'舱位等级校验', dimension:'标准控制',
+      desc:'交通舱位等级表中的「特殊情况」适用条件未明确界定，执行时存在主观判断空间',
+      condition:'需事前审批', basis:'差旅费管理办法附表一' },
+    suggestedFields:{ condition:'以下情形经部门负责人审批后可突破等级限制：（1）紧急出差（接到通知后4小时内出发）；（2）陪同外部专家出行；（3）出差目的地无对应等级交通工具。' } },
+  { id:'V005', ruleId:'TENANT_001:R_CAND_42_6F7G8H9I0J',
+    title:'招待费标准缺少明细科目', tags:[], issueTags:['提醒','低置信'],
+    description:'业务招待费未按招待类型设置明细科目限额，管理粒度不够精细',
+    feeType:'业务招待费', standard:'第四章第二条 业务招待费管理办法',
+    suggestion:'按招待类型（餐饮、礼品、活动等）补充明细科目限额标准',
+    confidence:'low', status:'skipped',
+    fields:{ name:'招待费标准缺少明细科目', feeType:'业务招待费', feeSub:'全部', checkType:'预算额度校验', dimension:'预算控制',
+      desc:'业务招待费未按招待类型设置明细科目限额，管理粒度不够精细',
+      condition:'全部适用', basis:'第四章第二条' },
+    suggestedFields:{ desc:'业务招待费按以下类型设置明细科目限额：餐饮招待（单次≤500元/人）、礼品（单次≤300元/人）、活动招待（单次≤800元/人）。超额须部门负责人审批。' } },
+  { id:'V006', ruleId:'TENANT_001:R_CAND_48_K1L2M3N4O5',
+    title:'通讯费报销标准需量化', tags:['强制'], issueTags:['条件矛盾','高置信'],
+    description:'通讯费按职级标准报销，超出部分个人承担，但未明确各职级具体金额上限',
+    feeType:'通讯费', standard:'第六章第一条 通讯费管理办法',
+    suggestion:'将「按职级标准报销」替换为具体金额上限：高层500元/月、中层300元/月、基层150元/月，超出部分个人承担',
+    confidence:'high', status:'fixed',
+    fields:{ name:'通讯费报销标准需量化', feeType:'通讯费', feeSub:'全部', checkType:'额度校验', dimension:'标准控制',
+      desc:'通讯费按职级标准报销，超出部分个人承担，但未明确各职级具体金额上限',
+      condition:'需提供通讯运营商正规发票', basis:'第六章第一条' },
+    suggestedFields:{ name:'通讯费报销标准', desc:'通讯费按职级标准报销：高层500元/月、中层300元/月、基层150元/月，超出部分个人承担。', condition:'需提供通讯运营商正规发票，月报销上限按职级执行' } }
+];
+
+let activeTab = 'all';
+let editingItemId = null;
+const originalValues = {};
+
+function getFiltered() {
+  if (activeTab==='all') return validationData;
+  return validationData.filter(v => v.status===activeTab);
+}
+
+function updateCounts() {
+  const all=validationData.length, pend=validationData.filter(v=>v.status==='pending').length;
+  const fix=validationData.filter(v=>v.status==='fixed').length, skp=validationData.filter(v=>v.status==='skipped').length;
+  ['tabAll','tabPending','tabFixed','tabSkipped'].forEach((id,i)=>document.getElementById(id).textContent=[all,pend,fix,skp][i]);
+  document.getElementById('totalIssues').textContent=all;
+  document.getElementById('fixedCount').textContent=fix;
+  document.getElementById('lPending').textContent=pend;
+  document.getElementById('lFixed').textContent=fix;
+  document.getElementById('lSkipped').textContent=skp;
+  document.getElementById('lTotal').textContent=all;
+}
+
+function switchTab(tab) {
+  activeTab=tab;
+  document.querySelectorAll('.v-tab').forEach(el=>el.classList.toggle('active',el.dataset.tab===tab));
+  render();
+}
+
+function issueCSS(tag) {
+  const m={'条件矛盾':'conflict','中置信':'medium','高置信':'high','低置信':'low','提醒':'remind'};
+  return m[tag]||'';
+}
+
+function renderView(v) {
+  const isFix=v.status==='fixed', isSkp=v.status==='skipped';
+  const tagsLeft=v.issueTags.map(t=>`<span class="v-tag ${issueCSS(t)}">${t}</span>`).join('');
+  const tagsRight=v.tags.map(t=>`<span class="v-tag hard">${t}</span>`).join('');
+  return `
+    <div class="vc-top-row">
+      <div class="vc-tags-left">${tagsLeft}</div>
+      <div class="vc-top-right">
+        <span class="vc-id">${v.ruleId}</span>${tagsRight}
+        ${isFix?'<span class="vc-status fixed">已修复</span>':''}
+        ${isSkp?'<span class="vc-status skipped">已跳过</span>':''}
+      </div>
+    </div>
+    ${isFix&&v.compare?`<div class="vc-compare"><div class="vcc-l">修改前后对比</div>${v.compare.map(c=>`<div class="vcc-old">${c.old}</div><div class="vcc-new">${c.new}</div>`).join('')}</div>`:''}
+    <div class="vc-title">${v.title}</div>
+    <div class="vc-desc">${v.description}</div>
+    <div class="vc-meta">
+      <span><span class="ml">费用类型</span> ${v.feeType}</span>
+      <span><span class="ml">审核标准</span> ${v.standard}</span>
+    </div>
+    <div class="vc-suggestion"><span class="vs-l">💡 建议</span> ${v.suggestion}</div>
+    ${!isFix&&!isSkp?`<div class="vc-actions">
+      <button class="vc-btn primary" onclick="adoptFix('${v.id}')">采纳建议</button>
+      <button class="vc-btn orange" onclick="manualEdit('${v.id}')">手动编辑修改</button>
+      ${v.confidence!=='high'?`<button class="vc-btn text" onclick="skipIssue('${v.id}')">跳过</button>`:''}
+    </div>`:`<div class="vc-actions">
+      ${isFix?`<button class="vc-btn primary" disabled>已采纳</button><button class="vc-btn danger" onclick="undoFix('${v.id}')">撤销修复</button>`:''}
+      ${isSkp?`<button class="vc-btn text" onclick="undoSkip('${v.id}')">取消跳过</button>`:''}
+    </div>`}`;
+}
+
+function renderEdit(v) {
+  const r=v.fields;
+  return `
+    <div class="vc-edit-banner">📝 已按建议自动修改，确认后点击保存</div>
+    <div class="vc-top-row">
+      <div class="vc-tags-left">${v.issueTags.map(t=>`<span class="v-tag ${issueCSS(t)}">${t}</span>`).join('')}</div>
+      <div class="vc-top-right"><span class="vc-id">${v.ruleId}</span>${v.tags.map(t=>`<span class="v-tag hard">${t}</span>`).join('')}</div>
+    </div>
+    <div class="vc-title"><input type="text" value="${r.name.replace(/"/g,'&quot;')}" id="eName-${v.id}" onchange="updField('${v.id}','name',this.value)" style="width:100%;max-width:400px;font-size:15px;font-weight:600;border:1px solid #e5e5e5;border-radius:4px;padding:4px 6px"></div>
+    <div class="field-grid">
+      <div class="field-item"><label>费用类型</label><input type="text" value="${r.feeType}" id="eFeeType-${v.id}" onchange="updField('${v.id}','feeType',this.value)"></div>
+      <div class="field-item"><label>费用小类</label><input type="text" value="${r.feeSub}" id="eFeeSub-${v.id}" onchange="updField('${v.id}','feeSub',this.value)"></div>
+      <div class="field-item"><label>检查类型</label><input type="text" value="${r.checkType}" id="eCheckType-${v.id}" onchange="updField('${v.id}','checkType',this.value)"></div>
+      <div class="field-item"><label>规则维度</label><input type="text" value="${r.dimension}" id="eDim-${v.id}" onchange="updField('${v.id}','dimension',this.value)"></div>
+      <div class="field-item full ${v.suggestedFields&&v.suggestedFields.desc?'highlight':''}">
+        <label>描述</label>
+        <div class="fh-wrap"><textarea id="eDesc-${v.id}" onchange="updField('${v.id}','desc',this.value)" rows="2">${r.desc}</textarea>${v.suggestedFields&&v.suggestedFields.desc?'<span class="fh-marker">!</span>':''}</div>
+        ${v.suggestedFields&&v.suggestedFields.desc?`<div class="field-suggestion"><span class="fs-l">💡 建议：</span>${v.suggestedFields.desc}</div>`:''}
+      </div>
+      <div class="field-item full ${v.suggestedFields&&v.suggestedFields.condition?'highlight':''}">
+        <label>适用条件</label>
+        <div class="fh-wrap"><textarea id="eCond-${v.id}" onchange="updField('${v.id}','condition',this.value)" rows="2">${r.condition}</textarea>${v.suggestedFields&&v.suggestedFields.condition?'<span class="fh-marker">!</span>':''}</div>
+        ${v.suggestedFields&&v.suggestedFields.condition?`<div class="field-suggestion"><span class="fs-l">💡 建议：</span>${v.suggestedFields.condition}</div>`:''}
+      </div>
+      <div class="field-item full ${v.suggestedFields&&v.suggestedFields.basis?'highlight':''}">
+        <label>制度依据</label>
+        <div class="fh-wrap"><textarea id="eBasis-${v.id}" onchange="updField('${v.id}','basis',this.value)" rows="2">${r.basis}</textarea>${v.suggestedFields&&v.suggestedFields.basis?'<span class="fh-marker">!</span>':''}</div>
+        ${v.suggestedFields&&v.suggestedFields.basis?`<div class="field-suggestion"><span class="fs-l">💡 建议：</span>${v.suggestedFields.basis}</div>`:''}
+      </div>
+    </div>
+    <div class="vc-actions">
+      <button class="vc-btn primary" onclick="saveEdit('${v.id}')">💾 保存</button>
+      <button class="vc-btn text" onclick="cancelEdit('${v.id}')">取消</button>
+    </div>`;
+}
+
+function render() {
+  const el=document.getElementById('vList');
+  const items=getFiltered();
+  if(!items.length){el.innerHTML='<div style="text-align:center;padding:40px 0;color:#ccc;font-size:14px">暂无数据</div>';return}
+  el.innerHTML=items.map(v=>`<div class="v-card${v.status==='fixed'?' fixed':''}${v.status==='skipped'?' skipped':''}${editingItemId===v.id?' editing':''}" id="card-${v.id}">${editingItemId===v.id?renderEdit(v):renderView(v)}</div>`).join('');
+  updateCounts();
+  updateButtons();
+}
+
+function updField(id,f,val) {
+  const v=validationData.find(x=>x.id===id);
+  if(v&&v.fields) v.fields[f]=val;
+}
+
+/* ── 采纳建议（直接自动修复） ── */
+function adoptFix(id) {
+  if(editingItemId) return;
+  const v=validationData.find(x=>x.id===id);
+  if(!v||!v.suggestedFields) return;
+  originalValues[id]=JSON.parse(JSON.stringify(v.fields));
+  for(const k in v.suggestedFields) if(v.fields.hasOwnProperty(k)) v.fields[k]=v.suggestedFields[k];
+  if(v.suggestedFields.name) v.title=v.suggestedFields.name;
+  // build compare
+  const comp=[];
+  for(const k of['name','desc','condition','basis']) if(v.fields[k]!==originalValues[id][k]) comp.push({old:originalValues[id][k],new:v.fields[k]});
+  v.compare=comp.length?comp:null;
+  v.status='fixed';
+  delete originalValues[id];
+  render();
+  toast('已按建议自动修改并修复');
+}
+
+/* ── 手动编辑修改 ── */
+function manualEdit(id) {
+  if(editingItemId) return;
+  const v=validationData.find(x=>x.id===id);
+  if(!v) return;
+  originalValues[id]=JSON.parse(JSON.stringify(v.fields));
+  editingItemId=id;
+  render();
+  const card=document.getElementById('card-'+id);
+  if(card) card.scrollIntoView({behavior:'smooth',block:'nearest'});
+}
+
+function saveEdit(id) {
+  const v=validationData.find(x=>x.id===id);
+  if(!v) return;
+  const orig=originalValues[id], comp=[];
+  if(orig) for(const k of['name','desc','condition','basis']) if(v.fields[k]!==orig[k]) comp.push({old:orig[k],new:v.fields[k]});
+  v.compare=comp.length?comp:null;
+  v.status='fixed';
+  editingItemId=null;
+  delete originalValues[id];
+  render();
+  toast('规则「'+v.title+'」已修复');
+}
+
+function cancelEdit(id) {
+  const v=validationData.find(x=>x.id===id), orig=originalValues[id];
+  if(v&&orig){for(const k in orig) v.fields[k]=orig[k];if(orig.name) v.title=orig.name}
+  editingItemId=null;
+  delete originalValues[id];
+  render();
+}
+
+/* ── 跳过 / 撤销 ── */
+function skipIssue(id) {
+  const v=validationData.find(x=>x.id===id);
+  if(!v||v.confidence==='high') return;
+  if(v.confidence==='medium'&&!confirm('该问题置信度为「中置信」，确认跳过？跳过不会修复规则，提交时需二次确认。')) return;
+  v.status='skipped';
+  render();
+  toast('已跳过规则「'+v.title+'」');
+}
+
+function undoFix(id) {
+  if(!confirm('确认撤销修复，恢复为原始规则？')) return;
+  const v=validationData.find(x=>x.id===id);
+  if(!v) return;
+  v.status='pending'; v.compare=null;
+  render();
+  toast('已撤销修复');
+}
+
+function undoSkip(id) {
+  const v=validationData.find(x=>x.id===id);
+  if(!v) return;
+  v.status='pending';
+  render();
+  toast('已取消跳过');
+}
+
+/* ── 采纳所有建议 ── */
+function handleBatchFix() {
+  const pend=validationData.filter(v=>v.status==='pending'&&v.suggestedFields);
+  if(!pend.length){toast('没有可批量修复的问题');return}
+  const btn=document.getElementById('batchBtn');
+  btn.disabled=true; btn.classList.add('loading'); btn.textContent='⏳ 修复中...';
+  let idx=0;
+  function next() {
+    if(idx>=pend.length){
+      btn.classList.remove('loading'); btn.disabled=false; btn.textContent='⚡ 采纳所有建议';
+      render(); toast('已批量修复 '+pend.length+' 个问题');
+      return;
+    }
+    const v=pend[idx];
+    originalValues[v.id]=JSON.parse(JSON.stringify(v.fields));
+    for(const k in v.suggestedFields) if(v.fields.hasOwnProperty(k)) v.fields[k]=v.suggestedFields[k];
+    if(v.suggestedFields.name) v.title=v.suggestedFields.name;
+    const comp=[];
+    for(const k of['name','desc','condition','basis']) if(v.fields[k]!==originalValues[v.id][k]) comp.push({old:originalValues[v.id][k],new:v.fields[k]});
+    v.compare=comp.length?comp:null;
+    v.status='fixed';
+    delete originalValues[v.id];
+    idx++;
+    setTimeout(next,300);
+  }
+  next();
+}
+
+/* ── 提交审核 ── */
+function handleFinalSubmit() {
+  const high=validationData.filter(v=>v.status==='pending'&&v.confidence==='high');
+  const medium=validationData.filter(v=>v.status==='pending'&&v.confidence==='medium');
+  if(high.length){toast('仍有 '+high.length+' 个高置信问题未修复，请先处理','e');return}
+  if(medium.length&&!confirm('有 '+medium.length+' 个中置信问题待修复，确认跳过并提交？')) return;
+  const btn=document.getElementById('submitBtn');
+  btn.disabled=true; btn.innerHTML='⏳ 提交中...'; btn.style.background='#d9d9d9';
+  setTimeout(()=>{btn.disabled=false; btn.innerHTML='📤 提交审核'; btn.style.background=''; toast('规则已成功提交审核')},1200);
+}
+
+/* ── 撤销所有修复 ── */
+function handleUndoAll() {
+  const fixed=validationData.filter(v=>v.status==='fixed');
+  if(!fixed.length) return;
+  if(!confirm('确定要撤销所有已采纳的修复建议吗？规则将恢复为原始状态')) return;
+  fixed.forEach(v=>{v.status='pending';v.compare=null});
+  render();
+  toast('已撤销所有修复，规则已恢复为原始状态');
+}
+
+function updateButtons() {
+  const high=validationData.filter(v=>v.status==='pending'&&v.confidence==='high');
+  const btn=document.getElementById('submitBtn');
+  btn.disabled=high.length>0;
+  const pend=validationData.filter(v=>v.status==='pending'&&v.suggestedFields);
+  const bBtn=document.getElementById('batchBtn');
+  if(!bBtn.classList.contains('loading')) bBtn.disabled=pend.length===0;
+  const fixed=validationData.filter(v=>v.status==='fixed');
+  const uBtn=document.getElementById('undoAllBtn');
+  uBtn.disabled=fixed.length===0;
+  uBtn.textContent=fixed.length?'撤销所有修复（'+fixed.length+'条）':'撤销所有修复';
+}
+
+function toast(msg,t) {
+  const c=document.getElementById('toastC');
+  const o=document.createElement('div');
+  o.className='toast toast-'+(t||'s');
+  o.innerHTML=(t==='e'?'❌ ':'✅ ')+msg;
+  c.appendChild(o);
+  setTimeout(()=>{if(o.parentNode)o.remove()},3000);
+}
+
+function copyReport() {
+  const lines=validationData.map(v=>`[${v.status==='fixed'?'已修复':v.status==='skipped'?'已跳过':'待修复'}] ${v.ruleId}: ${v.title} — ${v.suggestion}`).join('\n');
+  navigator.clipboard.writeText('规则校验报告 ('+new Date().toLocaleString()+')\n'+lines).then(()=>toast('已复制'));
+}
+
+render();
+</script>
+</body>
+</html>

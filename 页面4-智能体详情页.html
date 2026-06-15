@@ -1,0 +1,839 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>灵基 AI — 智能体工作台</title>
+<style>
+*{margin:0;padding:0;box-sizing:border-box}
+body{font-family:-apple-system,"Microsoft YaHei","PingFang SC",sans-serif;background:#f5f6f7;color:#1d2129;height:100vh;overflow:hidden}
+
+/* ── 顶部导航 ── */
+.top-bar{height:48px;background:#fff;border-bottom:1px solid #e5e6eb;display:flex;align-items:center;padding:0 20px;position:relative;z-index:10}
+.top-bar .logo{font-size:16px;font-weight:700;color:#1677ff;margin-right:32px;display:flex;align-items:center;gap:6px}
+.top-bar .logo span{font-size:18px}
+.top-tabs{display:flex;gap:0;height:100%}
+.top-tab{padding:0 20px;height:100%;display:flex;align-items:center;font-size:13px;color:#86909c;cursor:pointer;border-bottom:2px solid transparent;transition:all .2s}
+.top-tab:hover{color:#1d2129}
+.top-tab.active{color:#1677ff;border-bottom-color:#1677ff;font-weight:600}
+.top-tab.disabled{color:#c9cdd4;cursor:not-allowed;opacity:.5;position:relative}
+.top-tab.disabled::after{content:'后续迭代';position:absolute;top:6px;right:2px;font-size:9px;color:#c9cdd4;background:#f2f3f5;padding:0 4px;border-radius:2px}
+.top-right{margin-left:auto;display:flex;align-items:center;gap:16px}
+.top-right .user{display:flex;align-items:center;gap:8px;font-size:13px;color:#4e5969}
+.top-right .avatar{width:30px;height:30px;border-radius:50%;background:#1677ff;color:#fff;display:flex;align-items:center;justify-content:center;font-size:13px;font-weight:600}
+
+/* ── 主体布局 ── */
+.main-layout{display:flex;height:calc(100vh - 48px)}
+
+/* ── 左侧导航 ── */
+.sidebar{width:220px;background:#fff;border-right:1px solid #e5e6eb;overflow-y:auto;flex-shrink:0;display:flex;flex-direction:column}
+.sidebar .section-title{padding:16px 16px 8px;font-size:11px;color:#c9cdd4;text-transform:uppercase;letter-spacing:1px}
+.sidebar .nav-item{display:flex;align-items:center;gap:10px;padding:10px 16px;font-size:13px;color:#4e5969;cursor:pointer;transition:all .15s;border-left:3px solid transparent}
+.sidebar .nav-item:hover{background:#f7f8fa;color:#1d2129}
+.sidebar .nav-item.active{background:#e8f4ff;color:#1677ff;border-left-color:#1677ff;font-weight:600}
+.sidebar .nav-item .icon{font-size:16px;width:20px;text-align:center;flex-shrink:0}
+.sidebar .nav-item .badge{margin-left:auto;background:#ff4d4f;color:#fff;font-size:11px;padding:1px 6px;border-radius:10px;min-width:20px;text-align:center}
+.sidebar .nav-item .status-dot{width:6px;height:6px;border-radius:50%;margin-left:auto;flex-shrink:0}
+.sidebar .nav-item .status-dot.on{background:#00b578}
+.sidebar .nav-item .status-dot.off{background:#c9cdd4}
+.sidebar .nav-item .status-dot.err{background:#f53f3f}
+
+/* ── 内容区 ── */
+.content-area{flex:1;display:flex;flex-direction:column;overflow:hidden;background:#f5f6f7}
+
+/* ── 智能体详情头 ── */
+.agent-header{background:#fff;padding:14px 24px;border-bottom:1px solid #e5e6eb;display:flex;align-items:center;gap:14px;flex-shrink:0}
+.agent-header .ag-icon{width:40px;height:40px;border-radius:8px;background:linear-gradient(135deg,#1677ff,#7b61ff);display:flex;align-items:center;justify-content:center;color:#fff;font-size:20px;flex-shrink:0}
+.agent-header .ag-info{flex:1}
+.agent-header .ag-info .ag-name{font-size:16px;font-weight:600;color:#1d2129}
+.agent-header .ag-info .ag-meta{font-size:12px;color:#86909c;margin-top:2px}
+.agent-header .ag-status{font-size:12px;padding:3px 10px;border-radius:10px;background:#e8ffea;color:#00874c;font-weight:500}
+.agent-header .ag-header-right{display:flex;align-items:center;gap:0;margin-left:auto}
+
+/* ── 管理模式按钮 ── */
+.admin-mode-btn{font-size:12px;color:#86909c;cursor:pointer;padding:3px 10px;border-radius:4px;transition:all .15s;user-select:none}
+.admin-mode-btn:hover{background:#f2f3f5;color:#4e5969}
+.admin-mode-btn.active{background:#e8f4ff;color:#1677ff;font-weight:500}
+
+/* ── 智能体顶部标签栏 ── */
+.agent-tabs{background:#fff;padding:0 24px;border-bottom:1px solid #e5e6eb;display:flex;gap:0;flex-shrink:0;overflow-x:auto}
+.agent-tab{padding:0 18px;height:42px;display:flex;align-items:center;font-size:13px;color:#86909c;cursor:pointer;border-bottom:2px solid transparent;transition:all .2s;white-space:nowrap;position:relative}
+.agent-tab:hover{color:#1d2129}
+.agent-tab.active{color:#1677ff;border-bottom-color:#1677ff;font-weight:600}
+.agent-tab .tab-count{margin-left:6px;font-size:11px;background:#f2f3f5;padding:0 6px;border-radius:8px;color:#86909c}
+.agent-tab.active .tab-count{background:#e8f4ff;color:#1677ff}
+.agent-tab.highlight{position:relative}
+.agent-tab.highlight::after{content:'●';position:absolute;top:6px;right:4px;font-size:8px;color:#f53f3f}
+.agent-tab.drag-over{border-bottom-color:#1677ff;background:#e8f4ff;opacity:.6}
+.agent-tab.hidden-tab{display:none}
+
+/* ── 新增页签按钮 ── */
+.add-tab-btn{display:none;align-items:center;justify-content:center;width:28px;height:28px;border-radius:4px;font-size:18px;color:#86909c;cursor:pointer;margin:7px 0 0 4px;transition:all .15s;flex-shrink:0;border:1px dashed #c9cdd4;align-self:center;line-height:1}
+.add-tab-btn:hover{background:#f2f3f5;color:#4e5969;border-color:#86909c}
+
+/* ── 右键菜单 ── */
+.tab-context-menu{position:fixed;z-index:9999;background:#fff;border:1px solid #e5e6eb;border-radius:6px;box-shadow:0 6px 20px rgba(0,0,0,.1);padding:4px 0;min-width:130px;display:none}
+.tab-context-menu .ctx-item{padding:8px 16px;font-size:12px;color:#4e5969;cursor:pointer;transition:all .1s;display:flex;align-items:center;gap:8px}
+.tab-context-menu .ctx-item:hover{background:#f7f8fa}
+.tab-context-menu .ctx-item.danger{color:#f53f3f}
+.tab-context-menu .ctx-divider{height:1px;background:#e5e6eb;margin:4px 0}
+
+/* ── 模态框 ── */
+.modal-overlay{position:fixed;top:0;left:0;right:0;bottom:0;background:rgba(0,0,0,.35);z-index:9998;display:none;align-items:center;justify-content:center}
+.modal-overlay.show{display:flex}
+.modal{background:#fff;border-radius:10px;box-shadow:0 8px 30px rgba(0,0,0,.15);width:420px;max-width:90vw;max-height:80vh;overflow-y:auto;animation:ti .2s ease}
+.modal-header{padding:16px 20px 0;font-size:15px;font-weight:600;color:#1d2129}
+.modal-body{padding:16px 20px}
+.modal-body .m-field{margin-bottom:14px}
+.modal-body .m-field:last-child{margin-bottom:0}
+.modal-body .m-label{font-size:12px;color:#4e5969;margin-bottom:4px;display:block}
+.modal-body .m-input{width:100%;padding:8px 12px;border:1px solid #e5e6eb;border-radius:6px;font-size:13px;color:#1d2129;outline:none;transition:border-color .2s;box-sizing:border-box}
+.modal-body .m-input:focus{border-color:#1677ff}
+.modal-footer{padding:0 20px 16px;display:flex;justify-content:flex-end;gap:8px}
+.m-btn{padding:6px 16px;border-radius:6px;font-size:12px;font-weight:500;cursor:pointer;border:none;transition:all .15s}
+.m-btn.primary{background:#1677ff;color:#fff}
+.m-btn.primary:hover{opacity:.85}
+.m-btn.default{background:#f2f3f5;color:#4e5969}
+.m-btn.default:hover{background:#e5e6eb}
+.m-btn.danger{background:#f53f3f;color:#fff}
+.m-btn.danger:hover{opacity:.85}
+
+/* ── 说明链接 ── */
+.rt-help-link{font-size:12px;color:#1677ff;cursor:pointer;margin-right:12px;transition:all .15s;white-space:nowrap}
+.rt-help-link:hover{opacity:.75}
+
+/* ── 说明弹窗 ── */
+.help-modal .modal{width:540px}
+.help-content{padding:16px 20px;font-size:13px;color:#4e5969;line-height:1.8}
+.help-content h4{font-size:14px;color:#1d2129;margin:12px 0 6px}
+.help-content h4:first-child{margin-top:0}
+.help-content ul{padding-left:18px;margin:4px 0}
+.help-content li{margin-bottom:4px}
+
+/* ── Tab 内容面板 ── */
+.tab-panel{display:none;flex:1;flex-direction:column;overflow:hidden}
+.tab-panel.active{display:flex}
+
+/* ── 概览 ── */
+.overview-grid{padding:16px 24px;display:grid;grid-template-columns:repeat(4,1fr);gap:14px;flex-shrink:0}
+.ov-card{background:#fff;border-radius:8px;padding:16px 18px;box-shadow:0 1px 2px rgba(0,0,0,.04)}
+.ov-card .ov-num{font-size:24px;font-weight:700;color:#1d2129;line-height:1.2}
+.ov-card .ov-label{font-size:12px;color:#86909c;margin-top:4px}
+.ov-card .ov-trend{font-size:11px;margin-top:6px;color:#00b578}
+.ov-card .ov-trend.down{color:#f53f3f}
+.ov-card .ov-icon{float:right;font-size:28px;opacity:.15}
+.ov-chart-area{padding:0 24px 16px;flex:1;display:flex;gap:14px;overflow:hidden}
+.ov-chart-card{background:#fff;border-radius:8px;box-shadow:0 1px 2px rgba(0,0,0,.04);flex:1;padding:16px;display:flex;flex-direction:column}
+.ov-chart-card .cc-title{font-size:13px;font-weight:600;color:#1d2129;margin-bottom:10px}
+.cc-placeholder{flex:1;display:flex;align-items:center;justify-content:center;color:#c9cdd4;font-size:12px;background:#fafbfc;border-radius:6px;min-height:180px}
+
+/* ── 复核任务筛选区 ── */
+.rt-filter-bar{background:#fff;padding:12px 24px;border-bottom:1px solid #e5e6eb;display:flex;align-items:center;gap:0;flex-shrink:0}
+.rt-filter-tab{padding:6px 14px;font-size:12px;color:#86909c;cursor:pointer;border-radius:4px;transition:all .15s}
+.rt-filter-tab:hover{background:#f2f3f5;color:#4e5969}
+.rt-filter-tab.active{background:#e8f4ff;color:#1677ff;font-weight:500}
+.rt-filter-tab .rt-count{color:#c9cdd4;margin-left:4px;font-size:11px}
+.rt-filter-tab.active .rt-count{color:#1677ff}
+.rt-filter-bar .spacer{flex:1}
+.rt-btn-batch{padding:6px 16px;border:none;border-radius:6px;font-size:12px;font-weight:500;cursor:pointer;background:#1677ff;color:#fff;transition:all .15s;display:inline-flex;align-items:center;gap:4px}
+.rt-btn-batch:hover{opacity:.85}
+.rt-btn-batch:disabled{background:#c9cdd4;cursor:not-allowed;opacity:1}
+
+/* ── 复核任务列表（滚动区） ── */
+.rt-list{flex:1;overflow-y:auto;padding:12px 24px 24px}
+
+/* 复核任务卡片 */
+.rt-card{padding:14px 16px;margin-bottom:10px;background:#fff;border-radius:8px;box-shadow:0 1px 2px rgba(0,0,0,.04);display:flex;flex-direction:column;transition:border-color .15s,background .15s}
+.rt-card:last-child{margin-bottom:0}
+.rt-card.done{background:#f6ffed}
+.rt-card.skipped{background:#fafafa;opacity:.7}
+
+.rtc-top{display:flex;align-items:center;justify-content:space-between;gap:10px;margin-bottom:8px;flex-wrap:wrap}
+.rtc-type-tag{padding:2px 8px;border-radius:4px;font-size:11px;font-weight:500;display:inline-flex;align-items:center}
+.rtc-type-tag.redline{background:#f53f3f;color:#fff;font-weight:500}
+.rtc-type-tag.doc{background:#f0f5ff;color:#1677ff}
+.rtc-type-tag.risk{background:#fff7e6;color:#d46b08}
+.rtc-status-tag{padding:2px 10px;border-radius:10px;font-size:11px;font-weight:500}
+.rtc-status-tag.pending{background:#fff7e6;color:#d48806}
+.rtc-status-tag.done{background:#e8ffea;color:#00874c}
+.rtc-status-tag.skipped{background:#f2f3f5;color:#86909c}
+
+.rtc-desc{font-size:13px;color:#1d2129;line-height:1.5;margin-bottom:4px}
+.rtc-meta{font-size:12px;color:#86909c;line-height:1.5;margin-bottom:6px;display:flex;flex-wrap:wrap;gap:2px 16px}
+.rtc-suggestion{padding:8px 12px;background:#fafbfc;border-radius:6px;font-size:12px;color:#4e5969;line-height:1.5;margin-bottom:8px}
+.rtc-suggestion .rs-label{font-weight:600;color:#1677ff}
+
+.rtc-actions{display:flex;justify-content:flex-end;gap:6px;flex-wrap:wrap;margin-top:2px}
+.rtc-btn{padding:4px 12px;border-radius:4px;font-size:12px;font-weight:500;cursor:pointer;transition:all .15s;display:inline-flex;align-items:center;gap:3px;white-space:nowrap}
+.rtc-btn.primary{background:#1677ff;color:#fff;border:none}
+.rtc-btn.primary:hover:not(:disabled){opacity:.85}
+.rtc-btn:disabled{background:#c9cdd4!important;color:#fff!important;cursor:not-allowed;opacity:.6;border-color:#c9cdd4!important}
+.rtc-btn.primary:disabled{background:#c9cdd4!important;cursor:not-allowed}
+.rtc-btn.orange{background:#fff;color:#d46b08;border:1px solid #ffcc80}
+.rtc-btn.orange:hover{background:#fff7e6}
+.rtc-btn.text{background:transparent;color:#86909c;border:none;padding:4px 6px}
+.rtc-btn.text:hover{color:#4e5969}
+.rtc-btn.green{background:#00b578;color:#fff;border:none}
+.rtc-btn.green:hover{opacity:.85}
+.rtc-btn.green:disabled{background:#c9cdd4;cursor:not-allowed}
+
+.rtc-btn.undo{background:transparent;color:#1677ff;border:1px dashed #1677ff;padding:4px 12px;border-radius:4px;font-size:12px;font-weight:500;cursor:pointer;transition:all .15s;display:inline-flex;align-items:center;gap:3px;white-space:nowrap}
+.rtc-btn.undo:hover{background:#e8f4ff}
+
+.rtc-skip-reason{padding:6px 12px;margin-bottom:8px;font-size:12px;color:#86909c;background:#fafafa;border-radius:4px;line-height:1.5}
+
+/* ── 占位内容 ── */
+.tab-placeholder{flex:1;display:flex;flex-direction:column;align-items:center;justify-content:center;color:#c9cdd4;font-size:14px;padding:60px 20px}
+.tab-placeholder .tp-icon{font-size:48px;margin-bottom:12px;opacity:.4}
+
+/* ── 滚动条 ── */
+::-webkit-scrollbar{width:4px;height:4px}
+::-webkit-scrollbar-track{background:transparent}
+::-webkit-scrollbar-thumb{background:#c9cdd4;border-radius:2px}
+::-webkit-scrollbar-thumb:hover{background:#86909c}
+</style>
+</head>
+<body>
+
+<!-- ===== 顶部导航 ===== -->
+<header class="top-bar">
+  <div class="logo"><span>✦</span> 灵基AI</div>
+  <div class="top-tabs">
+    <span class="top-tab active">智能体</span>
+    <span class="top-tab">智能体市场</span>
+    <span class="top-tab">产品</span>
+    <span class="top-tab disabled">我的看板</span>
+  </div>
+  <div class="top-right">
+    <div class="user"><span>wu</span><div class="avatar">W</div></div>
+  </div>
+</header>
+
+<!-- ===== 主布局 ===== -->
+<div class="main-layout">
+
+  <!-- ===== 左侧导航 ===== -->
+  <nav class="sidebar">
+    <div class="section-title">已激活</div>
+    <div class="nav-item active" onclick="switchAgent(this,'费用审核智能体')">
+      <span class="icon">💰</span> 费用审核智能体 <span class="badge">12</span> <span class="status-dot on"></span>
+    </div>
+    <div class="nav-item" onclick="switchAgent(this,'经营分析智能体')">
+      <span class="icon">📊</span> 经营分析智能体 <span class="badge">5</span> <span class="status-dot on"></span>
+    </div>
+    <div class="nav-item" onclick="switchAgent(this,'预算管理智能体')">
+      <span class="icon">📋</span> 预算管理智能体 <span class="status-dot on"></span>
+    </div>
+    <div class="section-title">待激活</div>
+    <div class="nav-item" onclick="switchAgent(this,'税务管理智能体')">
+      <span class="icon">🏢</span> 税务管理智能体 <span class="status-dot off"></span>
+    </div>
+    <div class="nav-item" onclick="switchAgent(this,'往来对账智能体')">
+      <span class="icon">🤝</span> 往来对账智能体 <span class="status-dot off"></span>
+    </div>
+    <div class="section-title">已失效</div>
+    <div class="nav-item" onclick="switchAgent(this,'资金管理智能体')">
+      <span class="icon">💳</span> 资金管理智能体 <span class="status-dot err"></span>
+    </div>
+  </nav>
+
+  <!-- ===== 内容区 ===== -->
+  <div class="content-area">
+
+    <!-- 智能体详情头 -->
+    <div class="agent-header">
+      <div class="ag-icon">💰</div>
+      <div class="ag-info">
+        <div class="ag-name">费用审核智能体</div>
+        <div class="ag-meta">已在线 126 天 · 今日处理 23 单 · 准确率 98.6%</div>
+      </div>
+      <span class="ag-status">● 运行中</span>
+      <span class="admin-mode-btn" id="adminModeBtn" onclick="toggleAdminMode()">管理模式</span>
+    </div>
+
+    <!-- 智能体顶部标签 -->
+    <div class="agent-tabs" id="agentTabs">
+      <span class="agent-tab active" data-tab="overview" onclick="switchTab('overview')">概览</span>
+      <span class="agent-tab" data-tab="history" onclick="switchTab('history')">任务历史</span>
+      <span class="agent-tab" data-tab="schedule" onclick="switchTab('schedule')">定时任务</span>
+      <span class="agent-tab" data-tab="knowledge" onclick="switchTab('knowledge')">知识</span>
+      <span class="agent-tab" data-tab="output" onclick="switchTab('output')">产物</span>
+      <span class="agent-tab" data-tab="skill" onclick="switchTab('skill')">技能</span>
+      <span class="agent-tab" data-tab="memory" onclick="switchTab('memory')">记忆</span>
+      <span class="agent-tab highlight" data-tab="review" onclick="switchTab('review')">复核任务 <span class="tab-count">5</span></span>
+      <span class="add-tab-btn" id="addTabBtn" onclick="showAddTabModal()" title="新增页签">+</span>
+    </div>
+
+    <!-- ===== 概览 ===== -->
+    <div class="tab-panel active" id="panel-overview">
+      <div class="overview-grid">
+        <div class="ov-card"><div class="ov-num">1,284</div><div class="ov-label">本月总处理单数</div><div class="ov-trend">↑ 12.3% 较上月</div><div class="ov-icon">📄</div></div>
+        <div class="ov-card"><div class="ov-num">98.6%</div><div class="ov-label">智能审核通过率</div><div class="ov-trend">↑ 1.2% 较上月</div><div class="ov-icon">✅</div></div>
+        <div class="ov-card"><div class="ov-num">23</div><div class="ov-label">待人工复核</div><div class="ov-trend down">↑ 5 单较昨日</div><div class="ov-icon">👁️</div></div>
+        <div class="ov-card"><div class="ov-num">16</div><div class="ov-label">异常单据</div><div class="ov-trend down">↑ 3 单较昨日</div><div class="ov-icon">⚠️</div></div>
+      </div>
+      <div class="ov-chart-area">
+        <div class="ov-chart-card" style="flex:2"><div class="cc-title">处理趋势（近7日）</div><div class="cc-placeholder">📊 图表区域</div></div>
+        <div class="ov-chart-card" style="flex:1"><div class="cc-title">审核分布</div><div class="cc-placeholder">📈 图表区域</div></div>
+      </div>
+    </div>
+
+    <!-- ===== 任务历史 ===== -->
+    <div class="tab-panel" id="panel-history">
+      <div class="tab-placeholder"><div class="tp-icon">📋</div>任务历史内容</div>
+    </div>
+
+    <!-- ===== 定时任务 ===== -->
+    <div class="tab-panel" id="panel-schedule">
+      <div class="tab-placeholder"><div class="tp-icon">⏰</div>定时任务内容</div>
+    </div>
+
+    <!-- ===== 知识 ===== -->
+    <div class="tab-panel" id="panel-knowledge">
+      <div class="tab-placeholder"><div class="tp-icon">📚</div>知识内容</div>
+    </div>
+
+    <!-- ===== 产物 ===== -->
+    <div class="tab-panel" id="panel-output">
+      <div class="tab-placeholder"><div class="tp-icon">📦</div>产物内容</div>
+    </div>
+
+    <!-- ===== 技能 ===== -->
+    <div class="tab-panel" id="panel-skill">
+      <div class="tab-placeholder"><div class="tp-icon">🛠️</div>技能内容</div>
+    </div>
+
+    <!-- ===== 记忆 ===== -->
+    <div class="tab-panel" id="panel-memory">
+      <div class="tab-placeholder"><div class="tp-icon">🧠</div>记忆内容</div>
+    </div>
+
+    <!-- ===== 复核任务 ===== -->
+    <div class="tab-panel" id="panel-review">
+      <div class="rt-filter-bar">
+        <span class="rt-filter-tab active" data-ftab="all" onclick="switchRTab('all')">全部 <span class="rt-count" id="ftAll">5</span></span>
+        <span class="rt-filter-tab" data-ftab="pending" onclick="switchRTab('pending')">待处理 <span class="rt-count" id="ftPending">3</span></span>
+        <span class="rt-filter-tab" data-ftab="done" onclick="switchRTab('done')">已处理 <span class="rt-count" id="ftDone">1</span></span>
+        <span class="rt-filter-tab" data-ftab="skipped" onclick="switchRTab('skipped')">已跳过 <span class="rt-count" id="ftSkipped">1</span></span>
+        <div class="spacer"></div>
+        <span class="rt-help-link" onclick="showHelpModal()">【说明】</span>
+        <button class="rt-btn-batch" id="rtBatchBtn" onclick="handleBatchReview()">⚡ 批量采纳所有建议</button>
+      </div>
+      <div class="rt-list" id="rtList"></div>
+    </div>
+  </div>
+</div>
+
+<!-- ===== 右键菜单 ===== -->
+<div class="tab-context-menu" id="tabContextMenu">
+  <div class="ctx-item" onclick="ctxEditTab()">✏️ 编辑页签</div>
+  <div class="ctx-item" onclick="ctxHideTab()">👁️ 隐藏页签</div>
+  <div class="ctx-divider"></div>
+  <div class="ctx-item danger" onclick="ctxDeleteTab()">🗑️ 删除页签</div>
+</div>
+
+<!-- ===== 新增/编辑页签模态框 ===== -->
+<div class="modal-overlay" id="tabModal">
+  <div class="modal">
+    <div class="modal-header" id="tabModalTitle">新增页签</div>
+    <div class="modal-body">
+      <div class="m-field">
+        <label class="m-label">页签名称</label>
+        <input class="m-input" id="tabNameInput" placeholder="请输入页签名称" maxlength="12">
+      </div>
+      <div class="m-field">
+        <label class="m-label">权限范围</label>
+        <input class="m-input" id="tabPermInput" placeholder="如：管理员、审核员" value="管理员">
+      </div>
+      <div class="m-field">
+        <label class="m-label">显示条件</label>
+        <input class="m-input" id="tabCondInput" placeholder="如：有待处理任务时显示" value="始终显示">
+      </div>
+    </div>
+    <div class="modal-footer">
+      <button class="m-btn default" onclick="hideAddTabModal()">取消</button>
+      <button class="m-btn primary" onclick="saveTabConfig()">保存</button>
+    </div>
+  </div>
+</div>
+
+<!-- ===== 说明弹窗 ===== -->
+<div class="modal-overlay help-modal" id="helpModal">
+  <div class="modal">
+    <div class="modal-header">说明</div>
+    <div class="help-content">
+      <h4>复核任务页签设计说明</h4>
+      <p><strong>1. 设计背景：</strong>参考Microsoft Copilot、SAP Joule等大厂企业级AI平台的「待办/复核中心」设计范式，将智能体产生的红线校验、单据确认、风险警告等所有需要人工干预的任务，统一归集到一个页签中处理，避免用户在不同会话间来回切换。</p>
+      <p><strong>2. 核心价值：</strong></p>
+      <ul>
+        <li>风险集中管控：高优先级的红线校验、合规风险集中展示，避免用户遗漏关键问题；</li>
+        <li>处理效率提升：支持单条采纳/编辑/跳过，也支持批量处理，大幅降低操作成本；</li>
+        <li>流程闭环：处理后任务状态自动更新，支持追溯操作记录，满足财务内控审计要求。</li>
+      </ul>
+      <p><strong>3. 后续扩展：</strong>不同业务智能体（如预算管理、税务管理）可通过「管理模式」配置专属复核任务页签，实现业务场景的灵活适配。</p>
+    </div>
+    <div class="modal-footer">
+      <button class="m-btn primary" onclick="hideHelpModal()">我知道了</button>
+    </div>
+  </div>
+</div>
+
+<script>
+// ===== 复核任务数据 =====
+const reviewTasks = [
+  { id:'RT-001', type:'redline', typeLabel:'红线校验', title:'报销金额不得超过发票金额1.5倍',
+    desc:'报销金额超过发票价税合计的1.5倍，超限比例达62%，需人工确认合理性',
+    doc:'BX-2606-0973', person:'张小燕', dept:'财务部', amount:358.00,
+    suggestion:'将超限比例阈值调整为50%，超出部分须部门负责人审批',
+    skipReason:'', status:'pending' },
+  { id:'RT-002', type:'redline', typeLabel:'红线校验', title:'无预算支出不予审核',
+    desc:'费用科目「市场推广费」无对应预算余额，当前执行进度已超100%',
+    doc:'BI-2008-0972', person:'李小明', dept:'研发中心', amount:888.00,
+    suggestion:'确认费用是否属于预算调整范畴，或提交预算调整申请后重新审批',
+    skipReason:'', status:'pending' },
+  { id:'RT-003', type:'doc', typeLabel:'单据确认', title:'发票金额与报销金额不一致',
+    desc:'发票（#44031822）价税合计¥3,200.00，报销单填报¥3,500.00，差额¥300.00',
+    doc:'BX-2606-0970', person:'王强', dept:'采购部', amount:4400.00,
+    suggestion:'以发票金额为准，差额部分需补充说明或重新开票',
+    skipReason:'', status:'pending' },
+  { id:'RT-004', type:'risk', typeLabel:'风险警告', title:'频繁差旅报销疑似重复',
+    desc:'同一出差日期（06-08~06-09）存在两张差旅报销单，合计¥2,860.00',
+    doc:'PROC-2026-085693-222', person:'赵明', dept:'行政部', amount:1250.00,
+    suggestion:'核实出差明细是否存在重复报销，确认后合并处理',
+    skipReason:'', status:'done' },
+  { id:'RT-005', type:'risk', typeLabel:'风险警告', title:'招待费超标准限额',
+    desc:'单次招待费¥2,360.00，超出标准上限¥1,500.00/次，超标比例57%',
+    doc:'BX-2606-0960', person:'刘强', dept:'IT部', amount:2360.00,
+    suggestion:'超标部分须部门负责人事前审批，补充审批附件后可放行',
+    skipReason:'', status:'skipped' }
+];
+
+// ===== 管理模式 =====
+let isAdminMode = false;
+let customTabs = [];
+let contextTab = null;  // 右键点击的页签
+let editingTab = null;  // 正在编辑的页签
+
+function toggleAdminMode() {
+  isAdminMode = !isAdminMode;
+  document.getElementById('adminModeBtn').classList.toggle('active', isAdminMode);
+  document.getElementById('addTabBtn').style.display = isAdminMode ? 'inline-flex' : 'none';
+  // 管理模式时，页签可拖拽
+  document.querySelectorAll('.agent-tab').forEach(el => {
+    el.draggable = isAdminMode;
+  });
+  if (!isAdminMode) {
+    hideTabContextMenu();
+  }
+  // 更新自定义页签显示
+  renderCustomTabs();
+}
+
+// ===== 自定义页签管理 =====
+function renderCustomTabs() {
+  const container = document.getElementById('agentTabs');
+  // 移除之前的自定义页签（保留到 addTabBtn 之前）
+  document.querySelectorAll('.agent-tab.custom-tab').forEach(el => el.remove());
+  const addBtn = document.getElementById('addTabBtn');
+  customTabs.forEach((tab, idx) => {
+    const span = document.createElement('span');
+    span.className = 'agent-tab custom-tab' + (tab.hidden ? ' hidden-tab' : '');
+    if (tab.hidden) span.style.display = 'none';
+    span.dataset.tab = tab.id;
+    span.dataset.customIdx = idx;
+    span.draggable = isAdminMode;
+    span.textContent = tab.label;
+    span.onclick = function(){ switchCustomTab(tab.id); };
+    // 右键由 #agentTabs 全局 contextmenu 事件统一处理
+    container.insertBefore(span, addBtn);
+  });
+}
+
+function switchCustomTab(id) {
+  // 取消所有 tab 选中，选中自定义 tab
+  document.querySelectorAll('.agent-tab').forEach(el => el.classList.remove('active'));
+  const tab = document.querySelector(`.agent-tab[data-tab="${id}"]`);
+  if (tab) tab.classList.add('active');
+  // 隐藏所有面板
+  document.querySelectorAll('.tab-panel').forEach(el => el.classList.remove('active'));
+  // 显示自定义面板
+  let panel = document.getElementById('panel-' + id);
+  if (!panel) {
+    panel = document.createElement('div');
+    panel.className = 'tab-panel active';
+    panel.id = 'panel-' + id;
+    panel.innerHTML = '<div class="tab-placeholder"><div class="tp-icon">📄</div><div>' + (tab ? tab.textContent : '页签') + '内容区</div></div>';
+    document.querySelector('.content-area').appendChild(panel);
+  }
+  panel.classList.add('active');
+}
+
+// ===== 新增页签 =====
+function showAddTabModal() {
+  editingTab = null;
+  document.getElementById('tabModalTitle').textContent = '新增页签';
+  document.getElementById('tabNameInput').value = '';
+  document.getElementById('tabPermInput').value = '管理员';
+  document.getElementById('tabCondInput').value = '始终显示';
+  document.getElementById('tabModal').classList.add('show');
+}
+
+function hideAddTabModal() {
+  document.getElementById('tabModal').classList.remove('show');
+}
+
+function saveTabConfig() {
+  const name = document.getElementById('tabNameInput').value.trim();
+  if (!name) { toast('请输入页签名称'); return; }
+  const perm = document.getElementById('tabPermInput').value.trim() || '管理员';
+  const cond = document.getElementById('tabCondInput').value.trim() || '始终显示';
+  if (editingTab) {
+    // 编辑已有页签
+    editingTab.label = name;
+    editingTab.perm = perm;
+    editingTab.cond = cond;
+    // 更新 DOM
+    const el = document.querySelector(`.agent-tab[data-tab="${editingTab.id}"]`);
+    if (el) el.textContent = name;
+  } else {
+    // 新增页签
+    const id = 'custom-' + Date.now();
+    customTabs.push({ id: id, label: name, perm: perm, cond: cond, hidden: false });
+    renderCustomTabs();
+  }
+  hideAddTabModal();
+  toast('配置已保存');
+}
+
+// ===== 右键菜单 =====
+function showTabContextMenu(e, tabEl) {
+  e.preventDefault();
+  contextTab = tabEl;
+  const menu = document.getElementById('tabContextMenu');
+  const tabId = tabEl.dataset.tab;
+  const isBuiltin = ['overview','history','schedule','knowledge','output','skill','memory','review'].includes(tabId);
+  // 内置页签不可删除
+  const delItem = menu.querySelector('.ctx-item.danger');
+  delItem.style.display = isBuiltin ? 'none' : 'flex';
+  menu.style.display = 'block';
+  menu.style.left = Math.min(e.clientX, window.innerWidth - 150) + 'px';
+  menu.style.top = Math.min(e.clientY, window.innerHeight - 120) + 'px';
+}
+
+function hideTabContextMenu() {
+  document.getElementById('tabContextMenu').style.display = 'none';
+  contextTab = null;
+}
+
+function ctxEditTab() {
+  if (!contextTab) return;
+  const tabId = contextTab.dataset.tab;
+  const isBuiltin = ['overview','history','schedule','knowledge','output','skill','memory','review'].includes(tabId);
+  if (isBuiltin) {
+    hideTabContextMenu();
+    toast('内置页签名称不可修改');
+    return;
+  }
+  // 查找自定义页签
+  const idx = parseInt(contextTab.dataset.customIdx);
+  const tab = customTabs[idx];
+  if (!tab) { hideTabContextMenu(); return; }
+  editingTab = tab;
+  document.getElementById('tabModalTitle').textContent = '编辑页签';
+  document.getElementById('tabNameInput').value = tab.label;
+  document.getElementById('tabPermInput').value = tab.perm || '管理员';
+  document.getElementById('tabCondInput').value = tab.cond || '始终显示';
+  document.getElementById('tabModal').classList.add('show');
+  hideTabContextMenu();
+}
+
+function ctxHideTab() {
+  if (!contextTab) return;
+  const tabId = contextTab.dataset.tab;
+  const isBuiltin = ['overview','history','schedule','knowledge','output','skill','memory','review'].includes(tabId);
+  if (isBuiltin) {
+    contextTab.classList.toggle('hidden-tab');
+    contextTab.style.display = contextTab.classList.contains('hidden-tab') ? 'none' : '';
+    hideTabContextMenu();
+    toast(contextTab.classList.contains('hidden-tab') ? '页签已隐藏' : '页签已显示');
+    return;
+  }
+  const idx = parseInt(contextTab.dataset.customIdx);
+  const tab = customTabs[idx];
+  if (!tab) { hideTabContextMenu(); return; }
+  tab.hidden = !tab.hidden;
+  contextTab.classList.toggle('hidden-tab', tab.hidden);
+  contextTab.style.display = tab.hidden ? 'none' : '';
+  hideTabContextMenu();
+  toast(tab.hidden ? '页签已隐藏' : '页签已显示');
+}
+
+function ctxDeleteTab() {
+  if (!contextTab) return;
+  const tabId = contextTab.dataset.tab;
+  const isBuiltin = ['overview','history','schedule','knowledge','output','skill','memory','review'].includes(tabId);
+  if (isBuiltin) {
+    hideTabContextMenu();
+    toast('内置页签不可删除');
+    return;
+  }
+  hideTabContextMenu();
+  if (!confirm('确定要删除该页签吗？页签内的所有数据将被隐藏')) return;
+  const idx = parseInt(contextTab.dataset.customIdx);
+  const tab = customTabs[idx];
+  if (!tab) return;
+  customTabs.splice(idx, 1);
+  // 删除对应面板
+  const panel = document.getElementById('panel-' + tab.id);
+  if (panel) panel.remove();
+  renderCustomTabs();
+  toast('配置已保存');
+}
+
+// ===== 拖拽排序 =====
+let dragSrcTab = null;
+
+document.getElementById('agentTabs').addEventListener('dragstart', function(e) {
+  const tab = e.target.closest('.agent-tab');
+  if (!tab || !isAdminMode) return;
+  dragSrcTab = tab;
+  e.dataTransfer.effectAllowed = 'move';
+});
+
+document.getElementById('agentTabs').addEventListener('dragover', function(e) {
+  e.preventDefault();
+  const tab = e.target.closest('.agent-tab');
+  if (!tab || !isAdminMode || tab === dragSrcTab) return;
+  document.querySelectorAll('.agent-tab.drag-over').forEach(el => el.classList.remove('drag-over'));
+  tab.classList.add('drag-over');
+});
+
+document.getElementById('agentTabs').addEventListener('dragleave', function(e) {
+  const tab = e.target.closest('.agent-tab');
+  if (tab) tab.classList.remove('drag-over');
+});
+
+document.getElementById('agentTabs').addEventListener('drop', function(e) {
+  e.preventDefault();
+  document.querySelectorAll('.agent-tab.drag-over').forEach(el => el.classList.remove('drag-over'));
+  const target = e.target.closest('.agent-tab');
+  if (!target || !dragSrcTab || target === dragSrcTab || !isAdminMode) return;
+  const parent = document.getElementById('agentTabs');
+  if (dragSrcTab.compareDocumentPosition(target) & Node.DOCUMENT_POSITION_FOLLOWING) {
+    parent.insertBefore(dragSrcTab, target.nextSibling);
+  } else {
+    parent.insertBefore(dragSrcTab, target);
+  }
+  // 同步 customTabs 顺序
+  const allTabs = parent.querySelectorAll('.agent-tab');
+  const ordered = [];
+  allTabs.forEach(el => {
+    const id = el.dataset.tab;
+    if (id && id.startsWith('custom-')) {
+      const found = customTabs.find(t => t.id === id);
+      if (found) ordered.push(found);
+    }
+  });
+  customTabs = ordered;
+  toast('页签顺序已更新');
+});
+
+document.getElementById('agentTabs').addEventListener('dragend', function() {
+  document.querySelectorAll('.agent-tab.drag-over').forEach(el => el.classList.remove('drag-over'));
+  dragSrcTab = null;
+});
+
+// ===== 页签右键（静态页签 + 动态页签统一处理） =====
+document.getElementById('agentTabs').addEventListener('contextmenu', function(e) {
+  const tab = e.target.closest('.agent-tab');
+  if (!tab || !isAdminMode) return;
+  e.preventDefault();
+  showTabContextMenu(e, tab);
+});
+
+// ===== 点击空白隐藏菜单 =====
+document.addEventListener('click', function(e) {
+  if (!e.target.closest('.tab-context-menu') && !e.target.closest('.agent-tab')) {
+    hideTabContextMenu();
+  }
+});
+
+// ===== 说明弹窗 =====
+function showHelpModal() {
+  document.getElementById('helpModal').classList.add('show');
+}
+function hideHelpModal() {
+  document.getElementById('helpModal').classList.remove('show');
+}
+
+// 点遮罩关闭弹窗
+document.querySelectorAll('.modal-overlay').forEach(el => {
+  el.addEventListener('click', function(e) {
+    if (e.target === this) {
+      this.classList.remove('show');
+    }
+  });
+});
+
+// ===== 复核任务（原有逻辑） =====
+let rtFilter = 'all';
+
+function getRTData() {
+  if (rtFilter==='all') return reviewTasks;
+  return reviewTasks.filter(t=>t.status===rtFilter);
+}
+
+function updateRTCounts() {
+  const all=reviewTasks.length, pend=reviewTasks.filter(t=>t.status==='pending').length;
+  const done=reviewTasks.filter(t=>t.status==='done').length, skp=reviewTasks.filter(t=>t.status==='skipped').length;
+  document.getElementById('ftAll').textContent=all;
+  document.getElementById('ftPending').textContent=pend;
+  document.getElementById('ftDone').textContent=done;
+  document.getElementById('ftSkipped').textContent=skp;
+}
+
+function renderRT() {
+  const el=document.getElementById('rtList');
+  const data=getRTData();
+  if(!data.length){el.innerHTML='<div style="text-align:center;padding:40px 0;color:#c9cdd4;font-size:14px">暂无复核任务</div>';return;}
+  el.innerHTML=data.map(t=>{
+    const isDone=t.status==='done', isSkp=t.status==='skipped';
+    return `<div class="rt-card${isDone?' done':''}${isSkp?' skipped':''}">
+      <div class="rtc-top">
+        <span class="rtc-type-tag ${t.type}">${t.typeLabel}</span>
+        <div style="display:flex;gap:6px;align-items:center">
+          ${isDone?'<span class="rtc-status-tag done">已处理</span>':''}
+          ${isSkp?'<span class="rtc-status-tag skipped">已跳过</span>':''}
+        </div>
+      </div>
+      <div class="rtc-desc"><strong>${t.title}</strong></div>
+      <div class="rtc-desc">${t.desc}</div>
+      <div class="rtc-meta">
+        <span>📄 单据：${t.doc}</span>
+        <span>👤 申请人：${t.person}</span>
+        <span>🏢 ${t.dept}</span>
+        <span>💰 ¥${t.amount.toFixed(2)}</span>
+      </div>
+      <div class="rtc-suggestion"><span class="rs-label">💡 建议</span> ${t.suggestion}</div>
+      ${isDone?`<div class="rtc-actions">
+        <button class="rtc-btn primary" disabled>已采纳</button>
+        <button class="rtc-btn orange" disabled>手动编辑</button>
+        <button class="rtc-btn text" disabled>跳过</button>
+        ${t.type==='doc'?`<button class="rtc-btn green" disabled>确认</button>`:''}
+        <button class="rtc-btn undo" onclick="undoRT('${t.id}')">撤销处理</button>
+      </div>`:isSkp?`<div class="rtc-actions">
+        <button class="rtc-btn primary" disabled>采纳建议</button>
+        <button class="rtc-btn orange" disabled>手动编辑</button>
+        <button class="rtc-btn text" disabled>跳过</button>
+        <button class="rtc-btn text" onclick="unskipRT('${t.id}')">取消跳过</button>
+      </div>`:`<div class="rtc-actions">
+        <button class="rtc-btn primary" onclick="adoptRT('${t.id}')">采纳建议</button>
+        <button class="rtc-btn orange" onclick="manualRT('${t.id}')">手动编辑</button>
+        <button class="rtc-btn text" onclick="skipRT('${t.id}')">跳过</button>
+        ${t.type==='doc'?`<button class="rtc-btn green" onclick="confirmRT('${t.id}')">确认</button>`:''}
+      </div>`}
+      ${isSkp&&t.skipReason?`<div class="rtc-skip-reason">⏭ 跳过原因：${t.skipReason}</div>`:''}
+    </div>`;
+  }).join('');
+  updateRTCounts();
+  document.querySelectorAll('.rt-filter-tab').forEach(el=>el.classList.toggle('active',el.dataset.ftab===rtFilter));
+  updateBatchBtn();
+}
+
+function switchRTab(tab) {
+  rtFilter=tab;
+  renderRT();
+}
+
+function adoptRT(id) {
+  const t=reviewTasks.find(x=>x.id===id);
+  if(!t) return;
+  t.status='done';
+  renderRT();
+  toast('✅ 已采纳建议，任务标记为已处理');
+}
+
+function manualRT(id) {
+  toast('📝 已跳转至单据编辑页，请修改标红字段');
+}
+
+function skipRT(id) {
+  const reason=prompt('请输入跳过原因：');
+  if(reason===null) return;
+  const t=reviewTasks.find(x=>x.id===id);
+  if(!t) return;
+  t.status='skipped';
+  t.skipReason=reason.trim()||'未填写原因';
+  renderRT();
+  toast('⏭ 已跳过该复核任务');
+}
+
+function unskipRT(id) {
+  const t=reviewTasks.find(x=>x.id===id);
+  if(!t) return;
+  t.status='pending';
+  t.skipReason='';
+  renderRT();
+  toast('已取消跳过，恢复为待处理状态');
+}
+
+function undoRT(id) {
+  const t=reviewTasks.find(x=>x.id===id);
+  if(!t) return;
+  t.status='pending';
+  renderRT();
+  toast('↩ 已撤销处理，恢复为待处理状态');
+}
+
+function confirmRT(id) {
+  const t=reviewTasks.find(x=>x.id===id);
+  if(!t) return;
+  t.status='done';
+  renderRT();
+  toast('✅ 已确认单据，流程将继续推进');
+}
+
+function handleBatchReview() {
+  const pend=reviewTasks.filter(t=>t.status==='pending');
+  if(!pend.length){toast('没有可采纳的建议');return;}
+  if(!confirm('确定要批量采纳所有可采纳的建议吗？')) return;
+  pend.forEach(t=>t.status='done');
+  renderRT();
+  toast('✅ 已批量采纳 '+pend.length+' 条建议');
+}
+
+function updateBatchBtn() {
+  const pend=reviewTasks.filter(t=>t.status==='pending');
+  const btn=document.getElementById('rtBatchBtn');
+  btn.disabled=pend.length===0;
+}
+
+/* ── 标签页切换 ── */
+function switchTab(tab) {
+  document.querySelectorAll('.agent-tab').forEach(el=>el.classList.toggle('active',el.dataset.tab===tab));
+  document.querySelectorAll('.tab-panel').forEach(el=>el.classList.toggle('active',el.id==='panel-'+tab));
+}
+
+/* ── 切换智能体 ── */
+function switchAgent(el,name) {
+  document.querySelectorAll('.nav-item.active').forEach(n=>n.classList.remove('active'));
+  el.classList.add('active');
+  document.querySelector('.agent-header .ag-info .ag-name').textContent=name;
+}
+
+/* ── Toast ── */
+function toast(msg) {
+  const c=document.getElementById('toastC')||(()=>{const d=document.createElement('div');d.id='toastC';d.style.cssText='position:fixed;top:20px;left:50%;transform:translateX(-50%);z-index:9999';document.body.appendChild(d);return d;})();
+  const o=document.createElement('div');o.style.cssText='padding:10px 20px;border-radius:6px;font-size:13px;color:#fff;background:#1677ff;box-shadow:0 6px 20px rgba(0,0,0,.12);animation:ti .25s ease,to .3s ease 2.5s forwards;margin-bottom:8px;display:flex;align-items:center;gap:8px';
+  o.innerHTML='✅ '+msg;
+  c.appendChild(o);
+  setTimeout(()=>{if(o.parentNode)o.remove()},3000);
+}
+const style=document.createElement('style');
+style.textContent='@keyframes ti{from{opacity:0;transform:translateY(-12px)}to{opacity:1;transform:translateY(0)}}@keyframes to{from{opacity:1}to{opacity:0;transform:translateY(-8px)}}';
+document.head.appendChild(style);
+
+renderRT();
+</script>
+</body>
+</html>

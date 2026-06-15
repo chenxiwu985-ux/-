@@ -1,0 +1,628 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>AI提取制度解析规则候选</title>
+<style>
+*{margin:0;padding:0;box-sizing:border-box}
+body{font-family:-apple-system,"Microsoft YaHei","PingFang SC",sans-serif;background:#f0f2f5;color:#1d2129;height:100vh;overflow:hidden}
+
+/* ── 主布局 ── */
+.main{display:flex;height:100vh;gap:16px;padding:16px;background:#f0f2f5}
+
+/* ─── 左侧面板 ─── */
+.left-panel{width:360px;flex-shrink:0;background:#fff;border-radius:10px;border:1px solid #e5e6eb;display:flex;flex-direction:column;overflow:hidden}
+.lp-header{padding:14px 16px 10px;border-bottom:1px solid #e5e6eb}
+.lp-header h3{font-size:14px;font-weight:600;color:#1d2129}
+.lp-body{flex:1;overflow-y:auto;padding:12px 16px}
+
+.info-bubble{background:#f7f8fa;border:1px solid #e5e6eb;border-radius:8px;padding:10px 12px;font-size:12px;color:#4e5969;line-height:1.6;margin-bottom:12px}
+
+.status-bar{display:flex;align-items:center;justify-content:space-between;padding:9px 14px;border:1.5px solid #e5e6eb;border-radius:6px;font-size:13px;color:#1d2129;margin-bottom:12px;cursor:pointer;transition:background .15s}
+.status-bar:hover{background:#f5f5f5}
+.status-bar .highlight{color:#1677ff;font-weight:700}
+.status-bar .arrow{color:#c9cdd4;font-size:14px}
+
+.tier-text{font-size:12px;color:#4e5969;line-height:1.6;padding:8px 10px;background:#fafbfc;border-radius:6px;margin-bottom:12px}
+.tier-text strong{color:#1d2129}
+
+.section-title{font-size:13px;font-weight:600;color:#1d2129;margin-bottom:8px;padding-left:2px}
+
+.left-rule-item{background:#f7f8fa;border:1px solid #e5e6eb;border-radius:8px;padding:10px 12px;margin-bottom:10px}
+.lri-header{font-size:13px;font-weight:600;color:#1d2129;margin-bottom:4px}
+.lri-header .lri-count{font-weight:400;color:#86909c;font-size:12px}
+.lri-desc{font-size:12px;color:#4e5969;line-height:1.5;margin-bottom:4px}
+.lri-conf{font-size:11px;color:#86909c;line-height:1.5}
+
+.btn-submit{display:block;width:100%;padding:8px 0;border:none;border-radius:6px;background:#4a90e2;color:#fff;font-size:13px;font-weight:600;cursor:pointer;margin-bottom:14px;transition:opacity .15s}
+.btn-submit:hover{opacity:.88}
+.btn-submit:active{opacity:.75}
+
+.list-section{margin-bottom:12px}
+.ls-title{font-size:12px;font-weight:600;color:#1d2129;margin-bottom:6px}
+.ls-item{font-size:12px;color:#4e5969;line-height:1.6;padding:2px 0;display:flex;align-items:baseline;gap:4px}
+.ls-num{display:inline-flex;align-items:center;justify-content:center;width:16px;height:16px;border-radius:50%;background:#e8f4ff;color:#1677ff;font-size:10px;font-weight:600;flex-shrink:0}
+
+.timestamp{display:flex;align-items:center;justify-content:space-between;font-size:11px;color:#86909c;padding-top:8px;border-top:1px solid #f2f3f5;margin-top:4px}
+.ts-actions{display:flex;gap:6px}
+.ts-actions span{cursor:pointer;padding:2px 4px;border-radius:3px;font-size:13px}
+.ts-actions span:hover{background:#f5f5f5}
+
+/* 底部输入区 */
+.input-area{border-top:1px solid #e5e6eb;padding:10px 12px;flex-shrink:0}
+.ia-input-wrap{display:flex;align-items:center;gap:8px;background:#f7f8fa;border:1px solid #e5e6eb;border-radius:8px;padding:6px 10px}
+.ia-input-wrap input{flex:1;border:none;background:transparent;font-size:12px;color:#1d2129;outline:none}
+.ia-input-wrap input::placeholder{color:#c9cdd4}
+.ia-dropdown{font-size:11px;color:#4e5969;padding:2px 8px;background:#fff;border:1px solid #e5e6eb;border-radius:4px;cursor:pointer;white-space:nowrap}
+.ia-actions{display:flex;gap:4px}
+.ia-actions span{cursor:pointer;font-size:14px;padding:2px}
+
+/* ─── 右侧面板 ─── */
+.right-panel{flex:1;background:#fff;border-radius:10px;border:1px solid #e5e6eb;display:flex;flex-direction:column;overflow:hidden;position:relative}
+
+/* 右侧头部 */
+.rp-header{display:flex;align-items:flex-start;justify-content:space-between;padding:18px 24px 14px;border-bottom:1px solid #e5e6eb;flex-shrink:0}
+.rp-header h2{font-size:18px;font-weight:600;color:#1d2129}
+.rp-header .rp-sub{font-size:12px;color:#86909c;margin-top:3px}
+.rp-sub strong{color:#1d2129}
+
+.rp-header-right{display:flex;align-items:center;gap:14px;flex-shrink:0;margin-top:2px}
+.batch-stat{font-size:12px;color:#86909c;white-space:nowrap}
+.stat-num{display:inline-block;min-width:18px;height:18px;line-height:18px;text-align:center;background:#1677ff;color:#fff;border-radius:9px;font-size:11px;font-weight:600;padding:0 5px;margin:0 1px}
+
+/* 自定义复选框 */
+.custom-checkbox{display:inline-flex;align-items:center;gap:6px;cursor:pointer;font-size:13px;color:#4e5969;-webkit-user-select:none;user-select:none}
+.custom-checkbox input[type=checkbox]{position:absolute;opacity:0;width:0;height:0}
+.custom-checkbox .cb-visual{width:16px;height:16px;border:1.5px solid #c9cdd4;border-radius:3px;background:#fff;transition:all .15s;display:flex;align-items:center;justify-content:center;flex-shrink:0}
+.custom-checkbox .cb-visual::after{content:'✓';font-size:12px;font-weight:700;color:#fff;opacity:0;transition:opacity .1s;line-height:1}
+.custom-checkbox:hover .cb-visual{border-color:#1677ff}
+.custom-checkbox input:checked+.cb-visual{background:#1677ff;border-color:#1677ff}
+.custom-checkbox input:checked+.cb-visual::after{opacity:1}
+
+/* 提交按钮 */
+.btn-submit-main{padding:6px 18px;border-radius:6px;font-size:13px;font-weight:500;cursor:pointer;border:none;background:#4a90e2;color:#fff;transition:all .2s;display:inline-flex;align-items:center;gap:5px;white-space:nowrap}
+.btn-submit-main:hover:not(:disabled){opacity:.88}
+.btn-submit-main:active:not(:disabled){opacity:.75}
+.btn-submit-main:disabled{background:#c9cdd4;cursor:not-allowed;opacity:1}
+.btn-submit-main.loading{background:#4a90e2;opacity:.7;pointer-events:none}
+
+/* Tab 栏 */
+.tab-bar{display:flex;align-items:center;justify-content:space-between;padding:10px 24px;border-bottom:1px solid #e5e6eb;flex-shrink:0;background:#fafbfc}
+.tab{font-size:13px;font-weight:600;color:#1d2129;cursor:pointer}
+.tab .tab-suffix{font-weight:400;color:#86909c;font-size:12px;margin-left:4px}
+.tab-arrow{color:#c9cdd4;font-size:10px;cursor:pointer}
+
+/* 规则列表 */
+.rule-list{flex:1;overflow-y:auto;padding:12px 24px 24px}
+
+/* 规则卡片 */
+.rule-card{display:flex;gap:12px;padding:14px 16px;margin-bottom:10px;background:#fafbfc;border-radius:8px;border:1px solid #e5e6eb;transition:border-color .15s,box-shadow .15s}
+.rule-card:last-child{margin-bottom:0}
+.rule-card:hover{border-color:#4a90e240}
+.rule-card.selected{background:#f0f5ff;border-color:#91caff;box-shadow:0 0 0 1px #91caff inset}
+
+/* 复选框列 */
+.rc-checkbox-wrap{display:flex;align-items:flex-start;padding-top:3px}
+
+/* 内容区 */
+.rc-content{flex:1;min-width:0}
+.rc-title-row{display:flex;align-items:center;gap:8px;flex-wrap:wrap;margin-bottom:8px}
+.rc-title-row input{font-size:14px;font-weight:600;color:#1d2129;border:1px solid transparent;background:transparent;padding:2px 4px;border-radius:4px;width:100%;max-width:300px;transition:border-color .15s,background .15s}
+.rc-title-row input:hover{background:#fff;border-color:#e5e6eb}
+.rc-title-row input:focus{outline:none;background:#fff;border-color:#4a90e2}
+
+.rc-tags{display:flex;gap:5px;margin-bottom:10px}
+.rc-tag{padding:0 10px;border-radius:12px;font-size:11px;font-weight:600;line-height:20px}
+.rc-tag.hard{background:#ff6b6b;color:#fff}
+.rc-tag.newrule{background:#52c41a;color:#fff}
+
+/* 字段网格 */
+.field-grid{display:grid;grid-template-columns:1fr 1fr;gap:8px 16px;margin-bottom:8px}
+.field-item{display:flex;flex-direction:column;gap:3px}
+.field-item.full{grid-column:1/-1}
+.field-item label{font-size:11px;color:#86909c;font-weight:500}
+.field-item select,.field-item textarea,.field-item input[type=text]{font-size:12px;color:#1d2129;border:1px solid #e5e6eb;border-radius:4px;background:#fff;padding:4px 6px;transition:border-color .15s,box-shadow .15s;font-family:inherit}
+.field-item select:hover,.field-item textarea:hover,.field-item input[type=text]:hover{border-color:#c9cdd4}
+.field-item select:focus,.field-item textarea:focus,.field-item input[type=text]:focus{outline:none;border-color:#4a90e2;box-shadow:0 0 0 2px rgba(74,144,226,.15)}
+.field-item select{padding:4px 20px 4px 6px;appearance:none;background:#fff url("data:image/svg+xml,%3Csvg width='10' height='6' fill='%2386909c' viewBox='0 0 10 6'%3E%3Cpath d='M1 1l4 4 4-4'/%3E%3C/svg%3E") right 6px center/10px no-repeat;cursor:pointer}
+.field-item textarea{resize:vertical;min-height:40px;line-height:1.5}
+
+/* 卡片操作栏 */
+.rc-actions{display:flex;justify-content:flex-end;margin-top:6px}
+.btn-save-card{padding:4px 14px;border-radius:4px;font-size:12px;font-weight:500;cursor:pointer;border:1px solid #e5e6eb;background:#fff;color:#4e5969;transition:all .15s;display:inline-flex;align-items:center;gap:4px}
+.btn-save-card:hover{border-color:#4a90e2;color:#4a90e2;background:#f0f7ff}
+.btn-save-card:active{opacity:.75}
+.btn-save-card.loading{color:#86909c;border-color:#e5e6eb;pointer-events:none}
+
+/* 查看态 - 静态文本 */
+.rc-text-static{font-size:12px;color:#1d2129;line-height:1.6;padding:4px 6px;border:1px solid transparent;border-radius:4px}
+.rc-name-static{font-size:14px;font-weight:600;padding:2px 4px}
+
+/* 已编辑标签 */
+.rc-tag-saved{display:inline-block;padding:0 6px;border-radius:3px;font-size:10px;color:#86909c;background:#f2f3f5;line-height:18px;font-weight:500;flex-shrink:0}
+
+/* 编辑态 - 红色星标 */
+.rc-edit-indicator{color:#f53f3f;font-size:16px;font-weight:700;line-height:1;flex-shrink:0}
+
+/* 编辑态卡片边框 */
+.rule-card.editing{border-color:#4a90e2;box-shadow:0 0 0 1px #4a90e2 inset}
+
+/* 编辑按钮 */
+.btn-edit-card{padding:4px 14px;border-radius:4px;font-size:12px;font-weight:500;cursor:pointer;border:1px solid #e5e6eb;background:#fff;color:#4a90e2;transition:all .15s;display:inline-flex;align-items:center;gap:4px}
+.btn-edit-card:hover{border-color:#4a90e2;background:#f0f7ff}
+.btn-edit-card:active{opacity:.75}
+
+/* 取消按钮 */
+.btn-cancel-card{padding:4px 14px;border-radius:4px;font-size:12px;font-weight:500;cursor:pointer;border:1px solid #e5e6eb;background:#fff;color:#86909c;transition:all .15s;display:inline-flex;align-items:center;gap:4px}
+.btn-cancel-card:hover{border-color:#c9cdd4;color:#4e5969}
+.btn-cancel-card:active{opacity:.75}
+
+/* 按钮组 */
+.btn-group{display:flex;gap:8px}
+
+/* Toast */
+.toast-container{position:fixed;top:20px;left:50%;transform:translateX(-50%);z-index:9999;display:flex;flex-direction:column;gap:8px;pointer-events:none}
+.toast{padding:10px 20px;border-radius:8px;font-size:13px;color:#fff;box-shadow:0 6px 20px rgba(0,0,0,.12);animation:toastIn .25s ease,toastOut .3s ease 2.5s forwards;pointer-events:auto;display:flex;align-items:center;gap:8px}
+.toast-success{background:#1677ff}
+@keyframes toastIn{from{opacity:0;transform:translateY(-12px)}to{opacity:1;transform:translateY(0)}}
+@keyframes toastOut{from{opacity:1}to{opacity:0;transform:translateY(-8px)}}
+
+/* 滚动条 */
+::-webkit-scrollbar{width:4px;height:4px}
+::-webkit-scrollbar-track{background:transparent}
+::-webkit-scrollbar-thumb{background:#c9cdd4;border-radius:2px}
+::-webkit-scrollbar-thumb:hover{background:#86909c}
+</style>
+</head>
+<body>
+<div class="main">
+
+  <!-- ===== 左侧面板 ===== -->
+  <div class="left-panel">
+    <div class="lp-header">
+      <h3>📋 提取企业制度审核规则</h3>
+    </div>
+    <div class="lp-body">
+      <div class="info-bubble">
+        继续之前因等待用户选择而暂停的任务。勾选低置信候选项，或跳过此步骤使用默认值。
+      </div>
+      <div class="status-bar" onclick="alert('查看工具调用详情')">
+        <span>✅ 任务已完成 <span class="highlight">1</span> 次工具调用</span>
+        <span class="arrow">→</span>
+      </div>
+      <div class="tier-text">
+        <strong>Tier B</strong> 只有1条低置信候选项，且预设抽取数量低于上限，请从下方勾选。勾选后将进入 5d 复述步骤。
+      </div>
+      <div class="section-title">5c: 低置信候选勾选</div>
+      <div class="left-rule-item">
+        <div class="lri-header">业务招待 <span class="lri-count">（1 条）</span></div>
+        <div class="lri-desc">年度招待费总额不得超过营收核定比例</div>
+        <div class="lri-conf">置信度 0.4 · 原文阈值未明确，具体比例由预算委员会每年确定</div>
+      </div>
+      <button class="btn-submit" onclick="alert('已提交低置信候选')">提交</button>
+      <div class="list-section">
+        <div class="ls-title">勾选后，将进入 5d 复述</div>
+        <div class="ls-item"><span class="ls-num">1</span> 替代现有 19 条（制度候选项将替换预置规则）</div>
+        <div class="ls-item"><span class="ls-num">2</span> 冲突 2 条（交通费舱位等级标准、出国差旅标准）</div>
+        <div class="ls-item"><span class="ls-num">3</span> 保留两者 6 条</div>
+      </div>
+      <div class="timestamp">
+        <span>06-11 14:57</span>
+        <div class="ts-actions">
+          <span onclick="alert('已复制')" title="复制">📋</span>
+          <span onclick="alert('已点赞')" title="点赞">👍</span>
+          <span onclick="alert('已点踩')" title="点踩">👎</span>
+          <span onclick="alert('已复制链接')" title="分享">🔗</span>
+          <span onclick="if(confirm('确认删除？'))alert('已删除')" title="删除">🗑️</span>
+        </div>
+      </div>
+    </div>
+    <div class="input-area">
+      <div class="ia-input-wrap">
+        <input type="text" placeholder="问我问题或者布置任务，输入 @ 唤起技能或选择智能体">
+        <span class="ia-dropdown" onclick="alert('选择智能体')">费用审核智能体 ▼</span>
+        <div class="ia-actions">
+          <span onclick="alert('语音输入')" title="语音">🎤</span>
+          <span onclick="alert('上传文件')" title="上传">📎</span>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <!-- ===== 右侧面板 ===== -->
+  <div class="right-panel">
+    <div class="rp-header">
+      <div>
+        <h2>AI提取制度解析规则候选</h2>
+        <div class="rp-sub">共 <strong>10</strong> 条候选规则</div>
+      </div>
+      <div class="rp-header-right">
+        <label class="custom-checkbox" onclick="event.stopPropagation()">
+          <input type="checkbox" id="selectAll" onchange="toggleAll(this.checked)">
+          <span class="cb-visual"></span>
+          全选
+        </label>
+        <span class="batch-stat">已选 <strong class="stat-num" id="selectedCount">10</strong> / 10 条</span>
+        <button class="btn-submit-main" id="submitBtn" onclick="handleSubmit()">提交（10条）</button>
+      </div>
+    </div>
+    <div class="tab-bar">
+      <span class="tab">全新规则 39 条<span class="tab-suffix">— 建议新增</span></span>
+      <span class="tab-arrow">▼</span>
+    </div>
+    <div class="rule-list" id="ruleList"></div>
+  </div>
+</div>
+
+<div class="toast-container" id="toastContainer"></div>
+
+<script>
+const ruleData = [
+  {
+    id: 'R001', name: '费用支出须在预算范围内',
+    tags: ['硬性','全新规则'],
+    field_feeType: '全部', field_feeSub: '全部',
+    field_checkType: '预算额度校验', field_dimension: '预算控制',
+    field_desc: '所有费用支出须在批准的预算范围内进行',
+    field_condition: '全部适用（无附加筛选条件）',
+    field_basis: '第一章第三条（二）预算约束原则',
+    checked: true
+  },
+  {
+    id: 'R002', name: '费用报销须真实合法准确完整',
+    tags: ['硬性','全新规则'],
+    field_feeType: '全部', field_feeSub: '全部',
+    field_checkType: '发票真伪/合规性校验', field_dimension: '准确性',
+    field_desc: '费用报销必须以真实、合法的经济业务为基础，票据真实、金额准确、事项完整',
+    field_condition: '全部适用（无附加筛选条件）',
+    field_basis: '第一章第三条（三）真实准确原则',
+    checked: true
+  },
+  {
+    id: 'R003', name: '住宿费标准',
+    tags: ['硬性','全新规则'],
+    field_feeType: '差旅费', field_feeSub: '住宿费',
+    field_checkType: '额度校验', field_dimension: '标准控制',
+    field_desc: '住宿费不得超过公司规定的各城市住宿标准上限',
+    field_condition: '仅限出差申请单关联的报销',
+    field_basis: '第三章第五条 差旅费管理办法',
+    checked: true
+  },
+  {
+    id: 'R004', name: '交通费标准',
+    tags: ['硬性','全新规则'],
+    field_feeType: '差旅费', field_feeSub: '交通费',
+    field_checkType: '舱位等级校验', field_dimension: '标准控制',
+    field_desc: '交通费须按职级对应的舱位等级标准报销，超标部分自理',
+    field_condition: '仅限出差申请单关联的报销',
+    field_basis: '第三章第六条 差旅费管理办法',
+    checked: true
+  },
+  {
+    id: 'R005', name: '差旅补助标准',
+    tags: ['硬性','全新规则'],
+    field_feeType: '差旅费', field_feeSub: '补助',
+    field_checkType: '天数/标准校验', field_dimension: '标准控制',
+    field_desc: '差旅补助按实际出差天数及地区标准计算，上限不超过财务部核定标准',
+    field_condition: '需有出差申请单及考勤记录',
+    field_basis: '第三章第七条 差旅费管理办法',
+    checked: true
+  },
+  {
+    id: 'R006', name: '业务招待费标准',
+    tags: ['软性','全新规则'],
+    field_feeType: '业务招待费', field_feeSub: '全部',
+    field_checkType: '预算额度校验', field_dimension: '预算控制',
+    field_desc: '业务招待费不得超过营收核定比例，且须提前报备审批',
+    field_condition: '全部适用（需事前审批）',
+    field_basis: '第四章第二条 业务招待费管理办法',
+    checked: false
+  },
+  {
+    id: 'R007', name: '办公用品采购标准',
+    tags: ['软性','全新规则'],
+    field_feeType: '办公费', field_feeSub: '办公用品',
+    field_checkType: '采购流程校验', field_dimension: '流程合规',
+    field_desc: '办公用品采购须通过指定供应商平台下单，单笔超过2000元须附比价单',
+    field_condition: '全部适用（无附加筛选条件）',
+    field_basis: '第五章第三条 办公用品管理办法',
+    checked: false
+  },
+  {
+    id: 'R008', name: '通讯费标准',
+    tags: ['硬性','全新规则'],
+    field_feeType: '通讯费', field_feeSub: '全部',
+    field_checkType: '额度校验', field_dimension: '标准控制',
+    field_desc: '通讯费按职级标准报销，超出部分个人承担',
+    field_condition: '需提供通讯运营商正规发票',
+    field_basis: '第六章第一条 通讯费管理办法',
+    checked: false
+  },
+  {
+    id: 'R009', name: '培训费标准',
+    tags: ['软性','全新规则'],
+    field_feeType: '培训费', field_feeSub: '全部',
+    field_checkType: '培训计划校验', field_dimension: '预算控制',
+    field_desc: '培训费须在年度培训预算内，且已纳入培训计划方可报销',
+    field_condition: '需附培训通知及参训人员名单',
+    field_basis: '第七章第二条 培训费管理办法',
+    checked: false
+  },
+  {
+    id: 'R010', name: '会议费标准',
+    tags: ['硬性','全新规则'],
+    field_feeType: '会议费', field_feeSub: '全部',
+    field_checkType: '会议审批校验', field_dimension: '流程合规',
+    field_desc: '会议费须附会议通知、议程及签到表，人均费用不超过核定标准',
+    field_condition: '需事前审批，会后5个工作日内报销',
+    field_basis: '第八章第一条 会议费管理办法',
+    checked: false
+  }
+];
+
+const feeTypeOptions = ['全部','差旅费','业务招待费','办公费','通讯费','培训费','会议费','交通费'];
+const feeSubOptions = ['全部','住宿费','交通费','补助','办公用品','通讯费','其他'];
+const checkTypeOptions = ['预算额度校验','发票真伪/合规性校验','舱位等级校验','额度校验','采购流程校验','会议审批校验','培训计划校验','天数/标准校验'];
+const dimensionOptions = ['预算控制','准确性','标准控制','流程合规'];
+
+let editingCardId = null;
+const originalValues = {};
+
+function getCheckedCount() {
+  return ruleData.filter(r => r.checked).length;
+}
+
+function renderOptions(opts, selected) {
+  return opts.map(o => `<option value="${o}"${o===selected?' selected':''}>${o}</option>`).join('');
+}
+
+function renderView(r) {
+  return `
+      <div class="rc-title-row">
+        ${r.saved ? '<span class="rc-tag-saved">已编辑</span>' : ''}
+        <span class="rc-text-static rc-name-static">${r.name}</span>
+      </div>
+      <div class="rc-tags">
+        ${r.tags.map(t => `<span class="rc-tag ${t==='硬性'?'hard':'newrule'}">${t}</span>`).join('')}
+      </div>
+      <div class="field-grid">
+        <div class="field-item">
+          <label>费用类型</label>
+          <span class="rc-text-static">${r.field_feeType}</span>
+        </div>
+        <div class="field-item">
+          <label>费用小类</label>
+          <span class="rc-text-static">${r.field_feeSub}</span>
+        </div>
+        <div class="field-item">
+          <label>检查类型</label>
+          <span class="rc-text-static">${r.field_checkType}</span>
+        </div>
+        <div class="field-item">
+          <label>规则维度</label>
+          <span class="rc-text-static">${r.field_dimension}</span>
+        </div>
+        <div class="field-item full">
+          <label>描述</label>
+          <span class="rc-text-static">${r.field_desc}</span>
+        </div>
+        <div class="field-item full">
+          <label>适用条件</label>
+          <span class="rc-text-static">${r.field_condition}</span>
+        </div>
+        <div class="field-item full">
+          <label>制度依据</label>
+          <span class="rc-text-static">${r.field_basis}</span>
+        </div>
+      </div>
+      <div class="rc-actions">
+        <button class="btn-edit-card" onclick="enterEditMode('${r.id}')">✏️ 编辑</button>
+      </div>`;
+}
+
+function renderEdit(r) {
+  return `
+      <div class="rc-title-row">
+        <span class="rc-edit-indicator">*</span>
+        <input type="text" value="${r.name.replace(/"/g,'&quot;')}" id="edit-name-${r.id}" onchange="updateField('${r.id}','name',this.value)" style="max-width:360px">
+        ${r.tags.map(t => `<span class="rc-tag ${t==='硬性'?'hard':'newrule'}">${t}</span>`).join('')}
+      </div>
+      <div class="field-grid">
+        <div class="field-item">
+          <label>费用类型</label>
+          <select id="edit-feeType-${r.id}" onchange="updateField('${r.id}','feeType',this.value)">${renderOptions(feeTypeOptions, r.field_feeType)}</select>
+        </div>
+        <div class="field-item">
+          <label>费用小类</label>
+          <select id="edit-feeSub-${r.id}" onchange="updateField('${r.id}','feeSub',this.value)">${renderOptions(feeSubOptions, r.field_feeSub)}</select>
+        </div>
+        <div class="field-item">
+          <label>检查类型</label>
+          <select id="edit-checkType-${r.id}" onchange="updateField('${r.id}','checkType',this.value)">${renderOptions(checkTypeOptions, r.field_checkType)}</select>
+        </div>
+        <div class="field-item">
+          <label>规则维度</label>
+          <select id="edit-dimension-${r.id}" onchange="updateField('${r.id}','dimension',this.value)">${renderOptions(dimensionOptions, r.field_dimension)}</select>
+        </div>
+        <div class="field-item full">
+          <label>描述</label>
+          <textarea id="edit-desc-${r.id}" onchange="updateField('${r.id}','desc',this.value)" rows="2">${r.field_desc}</textarea>
+        </div>
+        <div class="field-item full">
+          <label>适用条件</label>
+          <textarea id="edit-condition-${r.id}" onchange="updateField('${r.id}','condition',this.value)" rows="2">${r.field_condition}</textarea>
+        </div>
+        <div class="field-item full">
+          <label>制度依据</label>
+          <textarea id="edit-basis-${r.id}" onchange="updateField('${r.id}','basis',this.value)" rows="2">${r.field_basis}</textarea>
+        </div>
+      </div>
+      <div class="rc-actions">
+        <div class="btn-group">
+          <button class="btn-save-card" onclick="saveCard('${r.id}')">💾 保存</button>
+          <button class="btn-cancel-card" onclick="cancelEdit('${r.id}')">取消</button>
+        </div>
+      </div>`;
+}
+
+function render() {
+  const el = document.getElementById('ruleList');
+  el.innerHTML = ruleData.map(r => `
+    <div class="rule-card${r.checked?' selected':''}${editingCardId===r.id?' editing':''}" id="card-${r.id}">
+      <div class="rc-checkbox-wrap">
+        <label class="custom-checkbox" onclick="event.stopPropagation()">
+          <input type="checkbox" ${r.checked?'checked':''} onchange="toggleRule('${r.id}', this.checked)">
+          <span class="cb-visual"></span>
+        </label>
+      </div>
+      <div class="rc-content">
+        ${editingCardId === r.id ? renderEdit(r) : renderView(r)}
+      </div>
+    </div>
+  `).join('');
+  updateStats();
+}
+
+function updateField(id, field, value) {
+  const rule = ruleData.find(r => r.id === id);
+  if (!rule) return;
+  const map = {
+    name: 'name', feeType: 'field_feeType', feeSub: 'field_feeSub',
+    checkType: 'field_checkType', dimension: 'field_dimension',
+    desc: 'field_desc', condition: 'field_condition', basis: 'field_basis'
+  };
+  const key = map[field];
+  if (key) rule[key] = value;
+}
+
+function enterEditMode(id) {
+  if (editingCardId) return;
+  const rule = ruleData.find(r => r.id === id);
+  if (!rule) return;
+  originalValues[id] = {
+    name: rule.name, field_feeType: rule.field_feeType, field_feeSub: rule.field_feeSub,
+    field_checkType: rule.field_checkType, field_dimension: rule.field_dimension,
+    field_desc: rule.field_desc, field_condition: rule.field_condition, field_basis: rule.field_basis
+  };
+  editingCardId = id;
+  render();
+  const card = document.getElementById('card-' + id);
+  if (card) card.scrollIntoView({ behavior: 'smooth', block: 'nearest' });
+}
+
+function saveCard(id) {
+  if (editingCardId !== id) return;
+  const btn = document.querySelector(`#card-${id} .btn-save-card`);
+  if (btn) { btn.disabled = true; btn.classList.add('loading'); btn.textContent = '⏳ 保存中'; }
+  setTimeout(() => {
+    const rule = ruleData.find(r => r.id === id);
+    if (rule) rule.saved = true;
+    editingCardId = null;
+    delete originalValues[id];
+    render();
+    showToast('规则「' + (rule ? rule.name : id) + '」已保存');
+  }, 800);
+}
+
+function cancelEdit(id) {
+  if (editingCardId !== id) return;
+  const rule = ruleData.find(r => r.id === id);
+  const orig = originalValues[id];
+  if (rule && orig) {
+    rule.name = orig.name; rule.field_feeType = orig.field_feeType;
+    rule.field_feeSub = orig.field_feeSub; rule.field_checkType = orig.field_checkType;
+    rule.field_dimension = orig.field_dimension; rule.field_desc = orig.field_desc;
+    rule.field_condition = orig.field_condition; rule.field_basis = orig.field_basis;
+  }
+  editingCardId = null;
+  delete originalValues[id];
+  render();
+}
+
+function toggleRule(id, checked) {
+  const rule = ruleData.find(r => r.id === id);
+  if (rule) {
+    rule.checked = checked;
+    const card = document.getElementById('card-' + id);
+    if (card) card.classList.toggle('selected', checked);
+  }
+  updateStats();
+}
+
+function toggleAll(checked) {
+  ruleData.forEach(r => { r.checked = checked; });
+  document.querySelectorAll('#ruleList .custom-checkbox input[type=checkbox]').forEach(cb => { cb.checked = checked; });
+  document.querySelectorAll('#ruleList .rule-card').forEach(card => {
+    card.classList.toggle('selected', checked);
+  });
+  updateStats();
+}
+
+function updateStats() {
+  const selected = getCheckedCount();
+  const total = ruleData.length;
+  const countEl = document.getElementById('selectedCount');
+  if (countEl) countEl.textContent = selected;
+  const selectAll = document.getElementById('selectAll');
+  if (selectAll) {
+    selectAll.checked = selected === total;
+    selectAll.indeterminate = selected > 0 && selected < total;
+  }
+  const submitBtn = document.getElementById('submitBtn');
+  if (submitBtn) {
+    submitBtn.disabled = selected === 0;
+    submitBtn.textContent = selected > 0 ? '提交（' + selected + '条）' : '提交';
+  }
+}
+
+function showToast(msg) {
+  const container = document.getElementById('toastContainer');
+  const toast = document.createElement('div');
+  toast.className = 'toast toast-success';
+  toast.innerHTML = '✅ ' + msg;
+  container.appendChild(toast);
+  setTimeout(() => { if (toast.parentNode) toast.remove(); }, 3000);
+}
+
+function handleSubmit() {
+  const selected = ruleData.filter(r => r.checked);
+  if (selected.length === 0) return;
+  if (hasUnsavedChanges()) {
+    if (!confirm('当前存在未保存的修改，是否确认离开？')) return;
+  }
+  const submitBtn = document.getElementById('submitBtn');
+  submitBtn.disabled = true;
+  submitBtn.classList.add('loading');
+  submitBtn.textContent = '⏳ 提交中...';
+  setTimeout(() => {
+    submitBtn.classList.remove('loading');
+    submitBtn.disabled = false;
+    updateStats();
+    showToast('已成功提交 ' + selected.length + ' 条规则');
+  }, 1200);
+}
+
+function hasUnsavedChanges() {
+  return editingCardId !== null;
+}
+
+// 全局防丢失：页面关闭/刷新/跳转前检测
+window.addEventListener('beforeunload', function(e) {
+  if (hasUnsavedChanges()) {
+    e.preventDefault();
+    e.returnValue = '';
+  }
+});
+
+// 快捷键：Esc 取消编辑
+document.addEventListener('keydown', function(e) {
+  if (e.key === 'Escape' && editingCardId) {
+    cancelEdit(editingCardId);
+  }
+});
+
+render();
+</script>
+</body>
+</html>

@@ -1,0 +1,378 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>规则库处理</title>
+<style>
+*{margin:0;padding:0;box-sizing:border-box}
+body{font-family:-apple-system,"Microsoft YaHei","PingFang SC",sans-serif;background:#f0f2f5;color:#1d2129;height:100vh;overflow:hidden}
+
+/* ── 主布局：左右两栏 ── */
+.main{display:flex;height:100vh;gap:16px;padding:16px;background:#f0f2f5}
+
+/* ── 左侧面板（初始化）── */
+.left-panel{width:320px;flex-shrink:0;background:#fff;border-radius:10px;border:1px solid #e5e6eb;display:flex;flex-direction:column;overflow:hidden}
+.lp-header{display:flex;align-items:center;justify-content:space-between;padding:14px 16px 10px;border-bottom:1px solid #e5e6eb}
+.lp-header h3{font-size:14px;font-weight:600;color:#1d2129}
+.lp-header .lp-action{font-size:12px;color:#1677ff;cursor:pointer;padding:2px 8px;border-radius:4px}
+.lp-header .lp-action:hover{background:#e8f4ff}
+.lp-body{padding:12px 16px 16px;overflow-y:auto;flex:1}
+
+/* 汇总表 */
+.summary-table{width:100%;border-collapse:collapse;font-size:13px;margin-bottom:12px}
+.summary-table td{padding:5px 4px;border-bottom:1px solid #f2f3f5;color:#4e5969}
+.summary-table td:last-child{text-align:right;font-weight:500;color:#1d2129}
+.summary-table tr:last-child td{font-weight:600;color:#1d2129;border-bottom:none}
+
+/* 工具调用按钮 */
+.tool-btn{display:flex;align-items:center;justify-content:space-between;width:100%;padding:9px 14px;margin-bottom:10px;border:1.5px solid #e5e6eb;border-radius:6px;background:#fff;cursor:pointer;font-size:13px;color:#1d2129;transition:background .15s}
+.tool-btn:hover{background:#f5f5f5}
+.tool-btn .tb-left{display:flex;align-items:center;gap:6px}
+.tool-btn .tb-highlight{color:#1677ff;font-weight:700}
+.tool-btn .tb-arrow{color:#c9cdd4;font-size:14px}
+
+/* 重置完成状态 */
+.reset-done{display:flex;align-items:center;gap:6px;padding:7px 10px;background:#f0f5ff;border-radius:6px;font-size:12px;color:#1677ff;margin-bottom:12px}
+
+/* 字段值表格 */
+.fields-table{width:100%;border-collapse:collapse;font-size:12px}
+.fields-table th{text-align:left;padding:4px 4px;color:#86909c;font-weight:500;border-bottom:1px solid #f2f3f5;font-size:11px}
+.fields-table td{padding:4px 4px;color:#86909c;border-bottom:1px solid #f2f3f5}
+.fields-table td:last-child{text-align:right;font-weight:500;color:#1d2129;font-family:'SF Mono','Cascadia Code',monospace;font-size:11px}
+.fields-table tr:last-child td{border-bottom:none}
+
+/* 注释文本 */
+.note-text{font-size:12px;color:#86909c;line-height:1.5;margin:10px 0 8px;padding:8px 10px;background:#fafbfc;border-radius:6px}
+
+/* 时间戳 */
+.timestamp{display:flex;align-items:center;justify-content:space-between;font-size:11px;color:#86909c;padding-top:8px;border-top:1px solid #f2f3f5;margin-top:4px}
+.timestamp .ts-actions{display:flex;gap:6px}
+.timestamp .ts-actions span{cursor:pointer;padding:2px 4px;border-radius:3px;font-size:13px}
+.timestamp .ts-actions span:hover{background:#f5f5f5}
+
+/* ── 右侧面板（主内容区）── */
+.right-panel{flex:1;background:#fff;border-radius:10px;border:1px solid #e5e6eb;display:flex;flex-direction:column;overflow:hidden;position:relative}
+
+/* 右侧头部：左标题 + 右批量操作区 */
+.rp-header{display:flex;align-items:flex-start;justify-content:space-between;padding:18px 24px 14px;border-bottom:1px solid #e5e6eb;flex-shrink:0}
+.rp-header h2{font-size:18px;font-weight:600;color:#1d2129}
+.rp-header .rp-sub{font-size:12px;color:#86909c;margin-top:3px}
+
+/* 右上角批量操作区 */
+.rp-header-right{display:flex;align-items:center;gap:16px;flex-shrink:0;margin-top:2px}
+.batch-stat{font-size:12px;color:#86909c;white-space:nowrap}
+.batch-stat .stat-num{display:inline-block;min-width:18px;height:18px;line-height:18px;text-align:center;background:#1677ff;color:#fff;border-radius:9px;font-size:11px;font-weight:600;padding:0 5px;margin:0 1px}
+
+/* 全选复选框（自定义） */
+.custom-checkbox{display:inline-flex;align-items:center;gap:6px;cursor:pointer;font-size:13px;color:#4e5969;-webkit-user-select:none;user-select:none}
+.custom-checkbox input[type=checkbox]{position:absolute;opacity:0;width:0;height:0}
+.custom-checkbox .cb-visual{width:16px;height:16px;border:1.5px solid #c9cdd4;border-radius:3px;background:#fff;transition:all .15s;display:flex;align-items:center;justify-content:center;flex-shrink:0}
+.custom-checkbox .cb-visual::after{content:'✓';font-size:12px;font-weight:700;color:#fff;opacity:0;transition:opacity .1s;line-height:1}
+.custom-checkbox:hover .cb-visual{border-color:#1677ff}
+.custom-checkbox input:checked+.cb-visual{background:#1677ff;border-color:#1677ff}
+.custom-checkbox input:checked+.cb-visual::after{opacity:1}
+
+/* 保存按钮 */
+.btn-save{padding:6px 18px;border-radius:6px;font-size:13px;font-weight:500;cursor:pointer;border:none;background:#1677ff;color:#fff;transition:all .2s;display:inline-flex;align-items:center;gap:5px;white-space:nowrap}
+.btn-save:hover:not(:disabled){opacity:.88}
+.btn-save:active:not(:disabled){opacity:.75}
+.btn-save:disabled{background:#c9cdd4;cursor:not-allowed;opacity:1}
+.btn-save.loading{background:#1677ff;opacity:.7;pointer-events:none}
+
+/* Toast 提示 */
+.toast-container{position:fixed;top:20px;left:50%;transform:translateX(-50%);z-index:9999;display:flex;flex-direction:column;gap:8px;pointer-events:none}
+.toast{padding:10px 20px;border-radius:8px;font-size:13px;color:#fff;box-shadow:0 6px 20px rgba(0,0,0,.12);animation:toastIn .25s ease,toastOut .3s ease 2.5s forwards;pointer-events:auto;display:flex;align-items:center;gap:8px}
+.toast-success{background:#1677ff}
+.toast-error{background:#f53f3f}
+@keyframes toastIn{from{opacity:0;transform:translateY(-12px)}to{opacity:1;transform:translateY(0)}}
+@keyframes toastOut{from{opacity:1}to{opacity:0;transform:translateY(-8px)}}
+
+/* 规则列表 */
+.rule-list{flex:1;overflow-y:auto;padding:16px 24px 24px}
+
+/* 分组标题 */
+.group-title{font-size:15px;font-weight:600;color:#1d2129;margin:0 0 12px;padding:0 2px}
+.group-title .gt-count{font-weight:400;color:#86909c;font-size:13px;margin-left:4px}
+
+/* 规则卡片 */
+.rule-card{display:flex;align-items:flex-start;padding:14px 18px;margin-bottom:8px;background:#fafbfc;border-radius:8px;border:1px solid #e5e6eb;transition:border-color .15s,background .15s,box-shadow .15s}
+.rule-card:last-child{margin-bottom:0}
+.rule-card:hover{border-color:#1677ff40}
+.rule-card.selected{background:#f0f5ff;border-color:#91caff;box-shadow:0 0 0 1px #91caff inset}
+
+.rc-left{flex:1;min-width:0}
+.rc-header{display:flex;align-items:center;gap:8px;margin-bottom:6px;flex-wrap:wrap}
+.rc-header .rc-id{font-size:13px;color:#4e5969;font-weight:500;font-family:'SF Mono','Cascadia Code',monospace}
+.rc-header .rc-name{font-size:14px;font-weight:600;color:#1d2129}
+
+.rc-tags{display:flex;gap:5px;margin-bottom:8px}
+.rc-tag{padding:0 8px;border-radius:3px;font-size:12px;font-weight:600;line-height:22px}
+.rc-tag.force{background:#ff4d4f;color:#fff;border:none}
+.rc-tag.statutory{background:#52c41a;color:#fff;border:none}
+
+.rc-desc{font-size:13px;color:#4e5969;line-height:1.6;margin-bottom:8px}
+
+.rc-meta{display:flex;flex-wrap:wrap;gap:2px 16px;font-size:12px;color:#86909c}
+.rc-meta .rm-label{color:#c9cdd4}
+.rc-meta .rm-value{color:#4e5969}
+
+.rc-right{display:flex;flex-direction:column;align-items:center;gap:6px;margin-left:16px;flex-shrink:0;padding-top:0}
+.rc-right .rc-checkbox-wrap{display:flex;align-items:center;justify-content:center;padding:2px 0 4px;border-bottom:1px solid #e5e6eb;margin-bottom:2px;width:100%}
+.rc-right .rc-checkbox-wrap .custom-checkbox{margin:0}
+.rc-right .rc-checkbox-wrap .custom-checkbox .cb-visual{width:18px;height:18px;border-radius:4px}
+.rc-right .rc-checkbox-wrap .custom-checkbox .cb-visual::after{font-size:13px}
+/* 浮动按钮 */
+.floating-btn{position:absolute;bottom:20px;right:20px;width:40px;height:40px;border-radius:50%;background:#fff;border:1px solid #e5e6eb;cursor:pointer;display:flex;align-items:center;justify-content:center;font-size:18px;transition:all .15s;z-index:10;color:#4e5969}
+.floating-btn:hover{border-color:#1677ff;color:#1677ff}
+
+.rule-group{margin-bottom:20px}
+.rule-group:last-child{margin-bottom:0}
+
+/* ── 滚动条 ── */
+::-webkit-scrollbar{width:4px;height:4px}
+::-webkit-scrollbar-track{background:transparent}
+::-webkit-scrollbar-thumb{background:#c9cdd4;border-radius:2px}
+::-webkit-scrollbar-thumb:hover{background:#86909c}
+</style>
+</head>
+<body>
+<div class="main">
+
+  <!-- ===== 左侧初始化面板 ===== -->
+  <div class="left-panel">
+    <div class="lp-header">
+      <h3>⚙ 初始化</h3>
+      <span class="lp-action" onclick="handleReset()">🔄 重置</span>
+    </div>
+    <div class="lp-body">
+
+      <!-- 汇总表 -->
+      <table class="summary-table">
+        <tr><td>重置初始化</td><td>1</td></tr>
+        <tr><td>制度解析结果</td><td>1</td></tr>
+        <tr><td>规则</td><td>16</td></tr>
+        <tr><td>初始化状态</td><td>1</td></tr>
+        <tr><td>合计</td><td>19</td></tr>
+      </table>
+
+      <!-- 工具调用按钮 -->
+      <button class="tool-btn" onclick="handleToolCall()">
+        <span class="tb-left">⚡ 任务已完成 <span class="tb-highlight" id="toolCount">3</span> 次工具调用</span>
+        <span class="tb-arrow">→</span>
+      </button>
+
+      <!-- 重置完成 -->
+      <div class="reset-done">✅ 初始化已重置完成。</div>
+
+      <!-- 字段值表 -->
+      <table class="fields-table">
+        <tr><th>字段</th><th>值</th></tr>
+        <tr><td>initialized</td><td id="fv-initialized">false</td></tr>
+        <tr><td>rule_count</td><td id="fv-ruleCount">0</td></tr>
+        <tr><td>preset_rule_count</td><td id="fv-presetCount">0</td></tr>
+        <tr><td>custom_rule_count</td><td id="fv-customCount">0</td></tr>
+        <tr><td>next_action</td><td id="fv-nextAction">select_preset_rules</td></tr>
+      </table>
+
+      <!-- 注释 -->
+      <div class="note-text">所有数据已清除，系统回到初始状态。下一步为选择预置规则。</div>
+
+      <!-- 时间戳 -->
+      <div class="timestamp">
+        <span>05-14 17:50</span>
+        <div class="ts-actions">
+          <span onclick="alert('已复制')" title="复制">📋</span>
+          <span onclick="alert('已点赞')" title="点赞">👍</span>
+          <span onclick="alert('评论功能开发中')" title="评论">💬</span>
+          <span onclick="alert('已复制链接')" title="分享">🔗</span>
+        </div>
+      </div>
+
+    </div>
+  </div>
+
+  <!-- ===== 右侧主内容区 ===== -->
+  <div class="right-panel">
+    <div class="rp-header">
+      <div>
+        <h2>预置审核规则</h2>
+        <div class="rp-sub">共 16 条预置规则 · 勾选需启用的规则后点击保存</div>
+      </div>
+      <div class="rp-header-right">
+        <label class="custom-checkbox" onclick="event.stopPropagation()">
+          <input type="checkbox" id="selectAll" onchange="toggleAll(this.checked)">
+          <span class="cb-visual"></span>
+          全选/取消全选
+        </label>
+        <span class="batch-stat">已选 <strong class="stat-num" id="selectedCount">8</strong> / 8 条</span>
+        <button class="btn-save" id="saveBtn" onclick="handleSave()">💾 保存配置</button>
+      </div>
+    </div>
+    <div class="rule-list" id="ruleList"></div>
+    <button class="floating-btn" onclick="handleAssistant()" title="智能助手">💬</button>
+  </div>
+</div>
+
+<script>
+// ===== 规则数据（含 enabled 状态）=====
+const ruleData = [
+  { id:'PRESET-C-APR-003', name:'自审自批检测', tags:['强制'], desc:'检测申请人是否与当前审批人为同一人，如果是则阻断并提示存在内部控制漏洞。', feeType:'全部 / —', basis:'企业内部控制基本规范', enabled:true },
+  { id:'PRESET-C-APR-004', name:'审批链完整性检查', tags:['强制'], desc:'校验是否通过所有必须的审批节点，如有跳过的节点则阻断并提示缺失的节点。', feeType:'全部 / —', basis:'企业内部控制流程', enabled:true },
+  { id:'PRESET-C-INV-001', name:'增值税专用发票必须验真通过', tags:['强制','法定'], desc:'调用国家税务总局发票查验接口校验发票真伪、日期、金额等信息，校验不通过或发票状态异常（红冲/作废）时阻断。', feeType:'全部 / —', basis:'《发票管理办法》第22条', enabled:true },
+  { id:'PRESET-C-INV-002', name:'发票抬头必须与报销企业名称一致', tags:['强制','法定'], desc:'检查发票购买方名称是否与纳税识别号匹配的企业全称一致，不一致（如简称、曾用名等）则阻断。', feeType:'全部 / —', basis:'《发票管理办法》第21条', enabled:true },
+  { id:'PRESET-C-INV-007', name:'定额发票不得超过税务局核定限额', tags:['强制','法定'], desc:'根据地区、行业、发票类型判断定额发票金额是否超过当地税务机关核定的最高限额，超限直接阻断。', feeType:'全部 / —', basis:'各地方税务局定额发票管理规定', enabled:true },
+  { id:'PRESET-C-INV-003', name:'发票连号检测', tags:['强制'], desc:'对同一批次报销中的发票进行连号检测，连号发票（连续3张及以上）须提交书面说明。', feeType:'全部 / —', basis:'《发票管理办法》第24条', enabled:true },
+  { id:'PRESET-C-INV-004', name:'电子发票去重校验', tags:['强制'], desc:'基于电子发票编码全局去重，同一张电子发票不可被多个报销单重复使用。', feeType:'全部 / —', basis:'企业内部控制流程', enabled:true },
+  { id:'PRESET-C-APR-001', name:'自审自批检测（终审级）', tags:['强制','法定'], desc:'CEO/VP级别的自审自批检测，检测是否存在高管绕过必要审批环节直接批准的情况。', feeType:'全部 / —', basis:'企业内部控制基本规范', enabled:true },
+];
+
+const groups = [{ title:'合规性', count:8, items:ruleData }];
+
+function getFlatRules() {
+  const arr = [];
+  groups.forEach(g => g.items.forEach(r => arr.push(r)));
+  return arr;
+}
+
+function render() {
+  const el = document.getElementById('ruleList');
+  el.innerHTML = groups.map(g => `
+    <div class="rule-group">
+      <div class="group-title">${g.title} <span class="gt-count">（${g.count}）</span></div>
+      ${g.items.map(r => `
+        <div class="rule-card${r.enabled ? ' selected' : ''}" id="card-${r.id}">
+          <div class="rc-left">
+            <div class="rc-header">
+              <span class="rc-id">${r.id}</span>
+              <span class="rc-name">${r.name}</span>
+            </div>
+            <div class="rc-tags">
+              ${r.tags.map(t => `<span class="rc-tag ${t === '强制' ? 'force' : 'statutory'}">${t}</span>`).join('')}
+            </div>
+            <div class="rc-desc">${r.desc}</div>
+            <div class="rc-meta">
+              <span><span class="rm-label">费用类型</span> <span class="rm-value">${r.feeType}</span></span>
+              <span><span class="rm-label">依据</span> <span class="rm-value">${r.basis}</span></span>
+            </div>
+          </div>
+          <div class="rc-right" onclick="event.stopPropagation()">
+            <div class="rc-checkbox-wrap">
+              <label class="custom-checkbox" onclick="event.stopPropagation()">
+                <input type="checkbox" ${r.enabled ? 'checked' : ''} onchange="toggleRule('${r.id}', this.checked)">
+                <span class="cb-visual"></span>
+              </label>
+            </div>
+          </div>
+        </div>
+      `).join('')}
+    </div>
+  `).join('');
+  updateStats();
+}
+
+function toggleRule(id, checked) {
+  const rule = getFlatRules().find(r => r.id === id);
+  if (rule) {
+    rule.enabled = checked;
+    const card = document.getElementById('card-' + id);
+    if (card) {
+      card.classList.toggle('selected', checked);
+    }
+  }
+  updateStats();
+}
+
+function toggleAll(checked) {
+  const rules = getFlatRules();
+  rules.forEach(r => {
+    r.enabled = checked;
+    const card = document.getElementById('card-' + r.id);
+    if (card) card.classList.toggle('selected', checked);
+  });
+  // 同步每个卡片内的复选框状态
+  document.querySelectorAll('#ruleList .custom-checkbox input[type=checkbox]').forEach(cb => {
+    cb.checked = checked;
+  });
+  updateStats();
+}
+
+function updateStats() {
+  const rules = getFlatRules();
+  const selected = rules.filter(r => r.enabled).length;
+  const total = rules.length;
+  const countEl = document.getElementById('selectedCount');
+  if (countEl) countEl.textContent = selected;
+  // 同步全选复选框状态
+  const selectAll = document.getElementById('selectAll');
+  if (selectAll) {
+    selectAll.checked = selected === total;
+    selectAll.indeterminate = selected > 0 && selected < total;
+  }
+  // 保存按钮状态
+  const saveBtn = document.getElementById('saveBtn');
+  if (saveBtn) {
+    saveBtn.disabled = selected === 0;
+    saveBtn.textContent = selected > 0 ? '💾 保存配置（' + selected + '条）' : '💾 保存配置';
+  }
+}
+
+function showToast(msg, type) {
+  const container = document.getElementById('toast-container') || (() => {
+    const el = document.createElement('div');
+    el.id = 'toast-container';
+    el.className = 'toast-container';
+    document.body.appendChild(el);
+    return el;
+  })();
+  const toast = document.createElement('div');
+  toast.className = 'toast toast-' + (type || 'success');
+  const icon = type === 'error' ? '❌' : '✅';
+  toast.innerHTML = icon + ' ' + msg;
+  container.appendChild(toast);
+  setTimeout(() => { if (toast.parentNode) toast.remove(); }, 3000);
+}
+
+function handleSave() {
+  const rules = getFlatRules();
+  const enabled = rules.filter(r => r.enabled);
+  if (enabled.length === 0) return;
+
+  const saveBtn = document.getElementById('saveBtn');
+  saveBtn.disabled = true;
+  saveBtn.classList.add('loading');
+  saveBtn.innerHTML = '⏳ 提交中...';
+
+  setTimeout(() => {
+    saveBtn.classList.remove('loading');
+    saveBtn.disabled = false;
+    updateStats();
+    showToast('预置规则配置已保存（' + enabled.length + ' 条规则已启用）', 'success');
+  }, 1200);
+}
+
+function handleReset() {
+  if (confirm('确认要重置所有初始化数据吗？')) {
+    document.getElementById('toolCount').textContent = '0';
+    document.getElementById('fv-initialized').textContent = 'false';
+    document.getElementById('fv-ruleCount').textContent = '0';
+    document.getElementById('fv-presetCount').textContent = '0';
+    document.getElementById('fv-customCount').textContent = '0';
+    document.getElementById('fv-nextAction').textContent = 'select_preset_rules';
+    alert('✅ 初始化已重置完成。');
+  }
+}
+
+function handleToolCall() {
+  alert('⚡ 工具调用已重置\n计数已归零，可重新开始执行。');
+  document.getElementById('toolCount').textContent = '0';
+}
+
+function handleAssistant() {
+  alert('💬 智能助手\n您好，我是规则库处理助手，有什么可以帮助您的？');
+}
+
+render();
+</script>
+</body>
+</html>
